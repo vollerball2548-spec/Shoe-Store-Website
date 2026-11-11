@@ -1,5 +1,5 @@
 {
-  "name": "SpeedStride Premium Footwear Co.",
+  "name": "Shoe Store Website",
   "description": "Full-Stack Sneaker & Footwear E-Commerce platform for SpeedStride with role-based access for Customers (พัสกร) and Admins (พัสกร Admin), catalog browsing, cart & checkout, order tracking, admin inventory/order management, and BullMQ background queue.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

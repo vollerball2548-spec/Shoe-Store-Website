@@ -1,110 +1,39 @@
-👟 Shoe Store Website
+# Shoe Store Website
 
-A modern e-commerce shoe store web application developed as a portfolio project.
+A full-stack sneaker e-commerce portfolio project. The storefront brand is SpeedStride.
 
-The application demonstrates a complete online shopping experience, including product browsing, product details, shopping cart, authentication, checkout, payment, and order tracking.
+## Features
 
-✨ Features
+- Browse, search, and filter footwear products
+- Product details, shopping cart, checkout, and order history
+- Customer and administrator experiences
+- Product inventory and order management
+- Responsive storefront UI
 
-Product listing
+## Tech Stack
 
-Product details
+- React 19, TypeScript, and Vite
+- Tailwind CSS
+- Express API
+- PostgreSQL
 
-Product categories
+## Getting Started
 
-Product search
-
-Shopping cart
-
-Login / Register
-
-Checkout flow
-
-Payment page
-
-Order tracking
-
-Protected routes for authenticated users
-
-Responsive web design
-
-🛠 Tech Stack
-
-Frontend
-
-Vue.js
-
-JavaScript
-
-HTML5
-
-CSS3
-
-Tailwind CSS
-
-Vue Router
-
-Development Tools
-
-Vite
-
-Git
-
-GitHub
-
-📂 Project Structure
-
-Shoe-Store-Website/
-├── src/
-│   ├── components/
-│   ├── views/
-│   ├── router/
-│   └── assets/
-├── public/
-├── package.json
-└── README.md
-
-🚀 Getting Started
-
-Clone the repository
-
-git clone https://github.com/vollerball2548-spec/Shoe-Store-Website.git
-cd Shoe-Store-Website
-
-Install dependencies
-
+```bash
 npm install
-
-Start the development server
-
 npm run dev
+```
 
-Then open the local URL displayed in the terminal.
+Open the local URL printed by the development server. Configure the environment variables and PostgreSQL database for database-backed features; the schema is in `db/schema.sql` and the local database setup is in `compose.yaml`.
 
-💡 What I Practiced
+## Scripts
 
-Through this project, I practiced:
+- `npm run dev` starts the application
+- `npm run lint` runs the TypeScript check
+- `npm run build` builds the frontend and server
 
-Building reusable Vue components
+## Developer
 
-Creating responsive interfaces with Tailwind CSS
-
-Managing navigation with Vue Router
-
-Designing an e-commerce shopping flow
-
-Managing authentication-based routes
-
-Creating cart and checkout interfaces
-
-Using Git and GitHub for version control
-
-👨‍💻 Developer
-
-Patsakorn Rodin
-Computer Science Student
-Phranakhon Rajabhat University
+Patsakorn Rodin, Computer Science student at Phranakhon Rajabhat University.
 
 GitHub: https://github.com/vollerball2548-spec
-
-⭐ Portfolio project for Frontend Developer / Software Developer / Full Stack Developer internship applications.
