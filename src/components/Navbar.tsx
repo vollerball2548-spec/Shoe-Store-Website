@@ -1,364 +1,287 @@
-import React, { useState } from 'react';
-import { 
-  ShoppingBag, 
-  Search, 
-  User as UserIcon, 
-  ShieldCheck, 
-  Activity, 
-  Package, 
-  LogOut, 
-  Menu, 
-  X, 
-  Store,
-  ChevronDown
+import { useState } from 'react';
+import {
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Search,
+  ShoppingBag,
+  UserRound,
+  X
 } from 'lucide-react';
 import { User } from '../types';
-import { SpeedStrideLogo } from './SpeedStrideLogo';
+import { initials } from '../lib/utils';
+import { BrandLogo } from './BrandLogo';
 
 interface NavbarProps {
-  currentView: 'store' | 'admin' | 'queue';
-  onSelectView: (view: 'store' | 'admin' | 'queue') => void;
   cartCount: number;
+  user: User | null;
   onOpenCart: () => void;
-  onOpenOrders: () => void;
   onOpenAuth: () => void;
-  currentUser: User | null;
+  onOpenOrders: () => void;
+  onOpenAdmin: () => void;
+  onSearch: (value: string) => void;
   onLogout: () => void;
-  searchQuery: string;
-  onSearchChange: (q: string) => void;
-  activeJobCount: number;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  currentView,
-  onSelectView,
-  cartCount,
-  onOpenCart,
-  onOpenOrders,
-  onOpenAuth,
-  currentUser,
-  onLogout,
-  searchQuery,
-  onSearchChange,
-  activeJobCount
-}) => {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+const NAV_LINKS = [
+  { label: 'สินค้าทั้งหมด', href: '#catalog' },
+  { label: 'หมวดหมู่', href: '#categories' },
+  { label: 'เรื่องราว', href: '#story' },
+  { label: 'ติดต่อ', href: '#footer' }
+];
 
-  const isAdmin = currentUser?.role === 'ADMIN';
+export function Navbar({
+  cartCount,
+  user,
+  onOpenCart,
+  onOpenAuth,
+  onOpenOrders,
+  onOpenAdmin,
+  onSearch,
+  onLogout
+}: NavbarProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    onSearch(search.trim());
+    setMobileOpen(false);
+    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const scrollTo = (href: string) => {
+    setMobileOpen(false);
+    document.querySelector(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <header className="sticky top-0 z-40 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 text-zinc-100 transition-all">
-      {/* Top Notice Bar */}
-      <div className="bg-gradient-to-r from-blue-700 via-sky-600 to-indigo-600 px-4 py-1.5 text-xs text-white flex items-center justify-between font-medium">
-        <div className="flex items-center gap-2 max-w-7xl mx-auto w-full justify-between">
-          <div className="flex items-center gap-2">
-            <span className="bg-white/20 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider">
-              {isAdmin ? 'ADMIN CONSOLE' : 'SPEEDSTRIDE OFFICIAL'}
-            </span>
-            <span>
-              {isAdmin 
-                ? 'ระบบจัดการร้าน SpeedStride (Admin Panel) • ผู้ดูแลระบบ: คุณพัสกร' 
-                : 'SpeedStride Premium Footwear Co. • รองเท้าสตรีทแวร์และสนีกเกอร์ของแท้ 100%'}
-            </span>
-          </div>
+    <header className="sticky top-0 z-40 border-b border-line/70 bg-cream/92 backdrop-blur-xl">
+      <div className="mx-auto flex h-[76px] max-w-[1440px] items-center justify-between gap-4 px-5 md:px-8 lg:px-12">
+        <a
+          href="#top"
+          onClick={() => setMobileOpen(false)}
+          className="shrink-0"
+          aria-label="patsakorn. mix shop"
+        >
+          <BrandLogo />
+        </a>
 
-          {isAdmin && (
-            <div className="hidden md:flex items-center gap-4 text-xs">
-              <button 
-                onClick={() => onSelectView('queue')}
-                className="hover:underline flex items-center gap-1 font-semibold"
+        <nav className="hidden items-center gap-8 lg:flex">
+          {NAV_LINKS.map(link => (
+            <a
+              key={link.href}
+              href={link.href}
+              className="link-underline text-[12px] font-semibold tracking-[0.01em] text-ink/75 transition-colors hover:text-ink"
+            >
+              {link.label}
+            </a>
+          ))}
+          <button
+            type="button"
+            onClick={onOpenAdmin}
+            className="link-underline flex items-center gap-1.5 text-[12px] font-semibold text-ink/75 transition-colors hover:text-ink"
+          >
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            หลังบ้าน
+          </button>
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <form
+            onSubmit={submitSearch}
+            className="hidden h-10 w-[220px] items-center gap-2 rounded-full border border-line bg-cream-soft px-4 transition-colors focus-within:border-ink/45 xl:flex"
+          >
+            <Search className="h-3.5 w-3.5 text-muted" />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="ค้นหาสินค้า..."
+              className="w-full bg-transparent text-[11px] text-ink outline-none placeholder:text-muted/75"
+              aria-label="ค้นหาสินค้า"
+            />
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setMobileOpen(open => !open)}
+            className="grid h-10 w-10 place-items-center rounded-full border border-line text-ink transition-colors hover:bg-sand/60 lg:hidden"
+            aria-label="เปิดเมนู"
+          >
+            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+
+          {user ? (
+            <div className="group relative hidden lg:block">
+              <button
+                type="button"
+                className="flex h-10 items-center gap-2 rounded-full border border-line bg-cream-soft pl-1.5 pr-3.5 transition-colors hover:border-ink/40"
+                aria-label="บัญชีของฉัน"
               >
-                <Activity className="w-3.5 h-3.5" />
-                <span>BullMQ Queue Status</span>
-                {activeJobCount > 0 && (
-                  <span className="bg-amber-400 text-zinc-950 px-1.5 py-0.2 rounded-full text-[10px] font-bold animate-pulse">
-                    {activeJobCount} Active
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="h-7 w-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-ink text-[9px] font-bold text-cream">
+                    {initials(user.name)}
                   </span>
                 )}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Navbar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
-          {/* Brand Logo & Name */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onSelectView('store')}
-              className="flex items-center text-left group focus:outline-none"
-            >
-              <SpeedStrideLogo />
-            </button>
-          </div>
-
-          {/* Navigation View Switcher Tabs (Desktop) - Only show Admin & Queue tabs to Admin */}
-          {isAdmin ? (
-            <nav className="hidden lg:flex items-center gap-1 bg-zinc-900 p-1 rounded-xl border border-zinc-800">
-              <button
-                id="nav-store-btn"
-                onClick={() => onSelectView('store')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  currentView === 'store'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-                }`}
-              >
-                <Store className="w-3.5 h-3.5" />
-                <span>ร้านค้า (Storefront)</span>
-              </button>
-
-              <button
-                id="nav-admin-btn"
-                onClick={() => onSelectView('admin')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  currentView === 'admin'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-                }`}
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Admin Dashboard</span>
-              </button>
-
-              <button
-                id="nav-queue-btn"
-                onClick={() => onSelectView('queue')}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  currentView === 'queue'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span>BullMQ Queue</span>
-                {activeJobCount > 0 && (
-                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
-                )}
-              </button>
-            </nav>
-          ) : (
-            <div className="hidden lg:flex items-center gap-2 text-xs text-zinc-400">
-              <span className="flex items-center gap-1.5 text-zinc-300">
-                <Store className="w-4 h-4 text-sky-400" />
-                <span>หน้าร้านค้า SpeedStride</span>
-              </span>
-            </div>
-          )}
-
-          {/* Search Bar (Store view) */}
-          {currentView === 'store' && (
-            <div className="hidden md:flex items-center flex-1 max-w-xs relative">
-              <Search className="w-4 h-4 text-zinc-400 absolute left-3 pointer-events-none" />
-              <input
-                id="search-input"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="ค้นหารุ่นรองเท้า SpeedStride, Nike, Samba..."
-                className="w-full bg-zinc-900 border border-zinc-800 text-sm text-zinc-100 placeholder-zinc-500 rounded-xl pl-9 pr-8 py-2 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-2.5 text-zinc-400 hover:text-white text-xs p-1"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Right Action Icons */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Orders History Trigger */}
-            <button
-              id="btn-order-history"
-              onClick={onOpenOrders}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-900 border border-transparent hover:border-zinc-800 text-xs font-medium transition-all"
-              title={isAdmin ? 'คำสั่งซื้อทั้งหมด' : 'ประวัติคำสั่งซื้อของฉัน'}
-            >
-              <Package className="w-4 h-4 text-sky-400" />
-              <span className="hidden sm:inline">
-                {isAdmin ? 'คำสั่งซื้อทั้งหมด' : 'ประวัติคำสั่งซื้อ'}
-              </span>
-            </button>
-
-            {/* Cart Drawer Trigger */}
-            <button
-              id="btn-cart-toggle"
-              onClick={onOpenCart}
-              className="relative p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-100 hover:border-sky-500/50 transition-all flex items-center justify-center"
-              aria-label="ตะกร้าสินค้า"
-            >
-              <ShoppingBag className="w-5 h-5 text-sky-400" />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-500 text-white font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center shadow-lg animate-scale">
-                  {cartCount}
+                <span className="max-w-[88px] truncate text-[11px] font-semibold">
+                  {user.name.split(' ')[0]}
                 </span>
-              )}
-            </button>
-
-            {/* User Profile / Auth Dropdown */}
-            <div className="relative">
-              {currentUser ? (
-                <div>
-                  <button
-                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-all"
-                  >
-                    <img
-                      src={currentUser.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80'}
-                      alt={currentUser.name}
-                      className="w-6 h-6 rounded-lg object-cover"
-                    />
-                    <span className="hidden md:inline max-w-[120px] truncate font-semibold">{currentUser.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded font-bold ${currentUser.role === 'ADMIN' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-sky-500/20 text-sky-400'}`}>
-                      {currentUser.role}
+              </button>
+              <div className="pointer-events-none absolute right-0 top-full w-60 pt-2 opacity-0 transition-all duration-200 group-hover:pointer-events-auto group-hover:opacity-100">
+                <div className="rounded-2xl border border-line bg-cream-soft p-2 shadow-[0_24px_60px_-22px_rgba(23,21,18,0.35)]">
+                  <div className="px-3 py-2">
+                    <p className="text-[11px] font-bold">{user.name}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-muted">{user.email}</p>
+                    <span className="mt-2 inline-flex rounded-full bg-sand px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.16em] text-ink/70">
+                      {user.role === 'ADMIN' ? 'Administrator' : 'Customer'}
                     </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenOrders}
+                    className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-medium hover:bg-sand/60"
+                  >
+                    <Package className="h-3.5 w-3.5 text-muted" /> คำสั่งซื้อของฉัน
                   </button>
-
-                  {userDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-60 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
-                      <div className="px-3 py-2 border-b border-zinc-800/80 mb-1">
-                        <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
-                        <p className="text-[11px] text-zinc-400 truncate">{currentUser.email}</p>
-                        <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
-                          สิทธิ์: {currentUser.role === 'ADMIN' ? 'ผู้ดูแลระบบ (Admin)' : 'ลูกค้า (Customer)'}
-                        </span>
-                      </div>
-
-                      {isAdmin && (
-                        <button
-                          onClick={() => {
-                            onSelectView('admin');
-                            setUserDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5 text-sky-400" />
-                          <span>เปิด Admin Dashboard</span>
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          onSelectView('store');
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-                      >
-                        <Store className="w-3.5 h-3.5 text-sky-400" />
-                        <span>หน้าร้านค้า (Storefront)</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          onOpenOrders();
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-                      >
-                        <Package className="w-3.5 h-3.5 text-sky-400" />
-                        <span>{isAdmin ? 'คำสั่งซื้อทั้งหมด' : 'คำสั่งซื้อของฉัน'}</span>
-                      </button>
-
-                      <div className="border-t border-zinc-800 my-1"></div>
-
-                      <button
-                        onClick={() => {
-                          onLogout();
-                          setUserDropdownOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 transition-colors"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>ออกจากระบบ (Logout)</span>
-                      </button>
-                    </div>
+                  {user.role === 'ADMIN' && (
+                    <button
+                      type="button"
+                      onClick={onOpenAdmin}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-medium hover:bg-sand/60"
+                    >
+                      <LayoutDashboard className="h-3.5 w-3.5 text-muted" /> หลังบ้าน
+                    </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[11px] font-medium text-clay hover:bg-clay-soft/40"
+                  >
+                    <LogOut className="h-3.5 w-3.5" /> ออกจากระบบ
+                  </button>
                 </div>
-              ) : (
-                <button
-                  id="btn-login-trigger"
-                  onClick={onOpenAuth}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-md shadow-blue-600/30 transition-all"
-                >
-                  <UserIcon className="w-4 h-4" />
-                  <span>เข้าสู่ระบบ / สมัคร</span>
-                </button>
-              )}
+              </div>
             </div>
-
-            {/* Mobile Menu Button */}
+          ) : (
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300"
+              type="button"
+              onClick={onOpenAuth}
+              className="hidden h-10 items-center gap-2 rounded-full border border-line px-4 text-[11px] font-semibold transition-colors hover:bg-sand/60 lg:flex"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <UserRound className="h-3.5 w-3.5" /> เข้าสู่ระบบ
             </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-4 space-y-2 animate-in slide-in-from-top-4">
-          <div className="mb-3">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="ค้นหารองเท้า..."
-              className="w-full bg-zinc-900 border border-zinc-800 text-sm text-zinc-100 placeholder-zinc-500 rounded-xl px-3 py-2"
-            />
-          </div>
-          <button
-            onClick={() => { onSelectView('store'); setMobileMenuOpen(false); }}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold ${
-              currentView === 'store' ? 'bg-blue-600 text-white' : 'text-zinc-300 hover:bg-zinc-900'
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            <span>Storefront (ร้านค้า SpeedStride)</span>
-          </button>
-
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => { onSelectView('admin'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold ${
-                  currentView === 'admin' ? 'bg-blue-600 text-white' : 'text-zinc-300 hover:bg-zinc-900'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Admin Dashboard (จัดการสินค้า/ออเดอร์)</span>
-              </button>
-              <button
-                onClick={() => { onSelectView('queue'); setMobileMenuOpen(false); }}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold ${
-                  currentView === 'queue' ? 'bg-blue-600 text-white' : 'text-zinc-300 hover:bg-zinc-900'
-                }`}
-              >
-                <Activity className="w-4 h-4" />
-                <span>BullMQ Background Queue Live</span>
-              </button>
-            </>
           )}
 
           <button
-            onClick={() => { onOpenOrders(); setMobileMenuOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-zinc-300 hover:bg-zinc-900"
+            type="button"
+            onClick={onOpenCart}
+            className="relative grid h-10 w-10 place-items-center rounded-full bg-ink text-cream transition-transform hover:scale-[1.04]"
+            aria-label="เปิดตะกร้าสินค้า"
           >
-            <Package className="w-4 h-4 text-sky-400" />
-            <span>{isAdmin ? 'รายการคำสั่งซื้อทั้งหมด' : 'ประวัติคำสั่งซื้อของฉัน'}</span>
+            <ShoppingBag className="h-4 w-4" />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 grid h-[19px] min-w-[19px] place-items-center rounded-full border-2 border-cream bg-clay px-1 text-[8px] font-bold text-white">
+                {cartCount}
+              </span>
+            )}
           </button>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div className="border-t border-line bg-cream px-5 pb-6 pt-4 lg:hidden">
+          <form
+            onSubmit={submitSearch}
+            className="mb-4 flex h-11 items-center gap-2 rounded-full border border-line bg-cream-soft px-4"
+          >
+            <Search className="h-4 w-4 text-muted" />
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="ค้นหาสินค้า..."
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted/75"
+              aria-label="ค้นหาสินค้า"
+            />
+          </form>
+
+          <div className="flex flex-col">
+            {NAV_LINKS.map(link => (
+              <button
+                key={link.href}
+                type="button"
+                onClick={() => scrollTo(link.href)}
+                className="border-b border-line/60 py-3 text-left text-sm font-semibold"
+              >
+                {link.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                onOpenAdmin();
+              }}
+              className="border-b border-line/60 py-3 text-left text-sm font-semibold"
+            >
+              หลังบ้าน
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            {user ? (
+              <>
+                <div className="flex items-center gap-3 rounded-2xl bg-sand/45 p-3">
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-ink text-[10px] font-bold text-cream">
+                    {initials(user.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-bold">{user.name}</p>
+                    <p className="truncate text-[10px] text-muted">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    onOpenOrders();
+                  }}
+                  className="flex h-11 items-center justify-center gap-2 rounded-full border border-line text-xs font-semibold"
+                >
+                  <Package className="h-4 w-4" /> คำสั่งซื้อของฉัน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    onLogout();
+                  }}
+                  className="flex h-11 items-center justify-center gap-2 rounded-full border border-clay/25 text-xs font-semibold text-clay"
+                >
+                  <LogOut className="h-4 w-4" /> ออกจากระบบ
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  onOpenAuth();
+                }}
+                className="h-11 rounded-full bg-ink text-xs font-semibold text-cream"
+              >
+                เข้าสู่ระบบ / สมัครสมาชิก
+              </button>
+            )}
+          </div>
         </div>
       )}
     </header>
   );
-};
+}

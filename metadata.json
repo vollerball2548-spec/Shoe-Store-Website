@@ -1,6 +1,6 @@
 {
-  "name": "Shoe Store Website",
-  "description": "Full-Stack Sneaker & Footwear E-Commerce platform for SpeedStride with role-based access for Customers (พัสกร) and Admins (พัสกร Admin), catalog browsing, cart & checkout, order tracking, admin inventory/order management, and BullMQ background queue.",
+  "name": "patsakorn. mix shop",
+  "description": "Curated mixed-goods e-commerce experience with a PostgreSQL-backed storefront, customer accounts, order history, and a full admin back office with inventory, orders, queue automation, and a read-only SQL console.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

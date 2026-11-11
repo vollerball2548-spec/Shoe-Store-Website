@@ -1,240 +1,237 @@
-import React from 'react';
-import { Filter, RotateCcw, Check, Sparkles } from 'lucide-react';
-import { FilterState, ShoeBrand, ShoeCategory } from '../types';
+import { useState } from 'react';
+import { ChevronDown, ListFilter, RotateCcw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { FilterState, ProductCategory, PRODUCT_CATEGORIES } from '../types';
+import { CATEGORY_META, cx, formatPrice } from '../lib/utils';
 
 interface ProductFilterProps {
-  filter: FilterState;
-  onChange: (filter: FilterState) => void;
+  filters: FilterState;
+  onChange: (patch: Partial<FilterState>) => void;
   onReset: () => void;
-  totalProductsCount: number;
+  brands: string[];
+  counts: Record<string, number>;
+  total: number;
+  resultCount: number;
 }
 
-const BRANDS: ShoeBrand[] = ['Nike', 'Adidas', 'Jordan', 'New Balance', 'Asics', 'Puma', 'Yeezy'];
-const CATEGORIES: ShoeCategory[] = ['Lifestyle', 'Running', 'Basketball', 'Skateboarding', 'Retro'];
-const SIZES = ['US 6.5', 'US 7', 'US 7.5', 'US 8', 'US 8.5', 'US 9', 'US 9.5', 'US 10', 'US 10.5', 'US 11'];
+const SORTS: { value: FilterState['sortBy']; label: string }[] = [
+  { value: 'featured', label: 'คัดสรรแนะนำ' },
+  { value: 'newest', label: 'มาใหม่ล่าสุด' },
+  { value: 'price-asc', label: 'ราคาต่ำ → สูง' },
+  { value: 'price-desc', label: 'ราคาสูง → ต่ำ' },
+  { value: 'rating', label: 'คะแนนสูงสุด' }
+];
 
-export const ProductFilter: React.FC<ProductFilterProps> = ({
-  filter,
+export function ProductFilter({
+  filters,
   onChange,
   onReset,
-  totalProductsCount
-}) => {
-  const toggleBrand = (brand: ShoeBrand) => {
-    const nextBrands = filter.brands.includes(brand)
-      ? filter.brands.filter(b => b !== brand)
-      : [...filter.brands, brand];
-    onChange({ ...filter, brands: nextBrands });
+  brands,
+  counts,
+  total,
+  resultCount
+}: ProductFilterProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleCategory = (category: ProductCategory) => {
+    onChange({
+      categories: filters.categories.includes(category)
+        ? filters.categories.filter(item => item !== category)
+        : [...filters.categories, category]
+    });
   };
 
-  const toggleCategory = (category: ShoeCategory) => {
-    const nextCategories = filter.categories.includes(category)
-      ? filter.categories.filter(c => c !== category)
-      : [...filter.categories, category];
-    onChange({ ...filter, categories: nextCategories });
+  const toggleBrand = (brand: string) => {
+    onChange({
+      brands: filters.brands.includes(brand)
+        ? filters.brands.filter(item => item !== brand)
+        : [...filters.brands, brand]
+    });
   };
 
-  const activeFiltersCount = 
-    filter.brands.length + 
-    filter.categories.length + 
-    (filter.gender !== 'All' ? 1 : 0) + 
-    (filter.inStockOnly ? 1 : 0) +
-    (filter.selectedSize ? 1 : 0) +
-    (filter.minPrice > 0 || filter.maxPrice < 15000 ? 1 : 0);
+  const activeCount =
+    filters.categories.length +
+    filters.brands.length +
+    (filters.search ? 1 : 0) +
+    (filters.inStockOnly ? 1 : 0) +
+    (filters.maxPrice < 8000 ? 1 : 0);
 
   return (
-    <aside className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-5 text-zinc-100 flex flex-col gap-6 sticky top-20 shadow-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-3.5">
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-sky-400" />
-          <h2 className="text-sm font-extrabold uppercase tracking-wider text-white">
-            ตัวกรองสินค้า
-          </h2>
-          {activeFiltersCount > 0 && (
-            <span className="bg-blue-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
-              {activeFiltersCount}
-            </span>
+    <div className="rounded-[26px] border border-line/85 bg-cream-soft/70 p-4 md:p-5">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-white/70 px-4 py-2.5">
+          <Search className="h-3.5 w-3.5 shrink-0 text-muted" />
+          <input
+            value={filters.search}
+            onChange={event => onChange({ search: event.target.value })}
+            placeholder="ค้นหาชื่อสินค้า แบรนด์ หรือ SKU..."
+            className="min-w-0 flex-1 bg-transparent text-[11px] outline-none placeholder:text-muted/75"
+            aria-label="ค้นหาสินค้าในแคตตาล็อก"
+          />
+          {filters.search && (
+            <button
+              type="button"
+              onClick={() => onChange({ search: '' })}
+              className="text-muted hover:text-ink"
+              aria-label="ล้างคำค้นหา"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
 
-        {activeFiltersCount > 0 && (
-          <button
-            onClick={onReset}
-            className="text-xs text-zinc-400 hover:text-sky-400 flex items-center gap-1 transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>รีเซ็ต</span>
-          </button>
-        )}
-      </div>
-
-      {/* Sort By Selector */}
-      <div>
-        <label className="text-xs font-bold text-zinc-300 mb-2 block uppercase tracking-wider">
-          เรียงตาม (Sort by)
-        </label>
-        <select
-          id="filter-sort-select"
-          value={filter.sortBy}
-          onChange={(e) => onChange({ ...filter, sortBy: e.target.value as any })}
-          className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs font-medium text-zinc-200 focus:outline-none focus:border-sky-500"
-        >
-          <option value="featured">✨ สินค้าแนะนำ (Featured)</option>
-          <option value="price-asc">💵 ราคา: ต่ำไปสูง</option>
-          <option value="price-desc">💎 ราคา: สูงไปต่ำ</option>
-          <option value="newest">🆕 มาใหม่ล่าสุด</option>
-          <option value="rating">⭐ คะแนนรีวิวสูงสุด</option>
-        </select>
-      </div>
-
-      {/* In-Stock Only Toggle */}
-      <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
-        <span className="text-xs font-medium text-zinc-200 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-          เฉพาะที่มีสต็อกพร้อมส่ง
-        </span>
         <button
           type="button"
-          onClick={() => onChange({ ...filter, inStockOnly: !filter.inStockOnly })}
-          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-            filter.inStockOnly ? 'bg-blue-600' : 'bg-zinc-700'
-          }`}
+          onClick={() => setExpanded(value => !value)}
+          className={cx(
+            'flex h-[42px] items-center gap-2 rounded-full border px-4 text-[11px] font-semibold transition-colors',
+            expanded
+              ? 'border-ink bg-ink text-cream'
+              : 'border-line bg-white/70 text-ink hover:border-ink/40'
+          )}
         >
-          <span
-            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-              filter.inStockOnly ? 'translate-x-4' : 'translate-x-0'
-            }`}
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          ตัวกรอง
+          {activeCount > 0 && (
+            <span
+              className={cx(
+                'grid h-4 min-w-4 place-items-center rounded-full px-1 text-[8px] font-bold',
+                expanded ? 'bg-cream text-ink' : 'bg-clay text-white'
+              )}
+            >
+              {activeCount}
+            </span>
+          )}
+          <ChevronDown
+            className={cx('h-3 w-3 transition-transform', expanded && 'rotate-180')}
           />
         </button>
-      </div>
 
-      {/* Brands Filter */}
-      <div>
-        <label className="text-xs font-bold text-zinc-300 mb-2.5 block uppercase tracking-wider">
-          แบรนด์ (Brand)
-        </label>
-        <div className="grid grid-cols-2 gap-1.5">
-          {BRANDS.map((b) => {
-            const isSelected = filter.brands.includes(b);
-            return (
-              <button
-                key={b}
-                type="button"
-                onClick={() => toggleBrand(b)}
-                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  isSelected
-                    ? 'bg-blue-600/20 border-sky-500 text-sky-400 font-bold'
-                    : 'bg-zinc-950/40 border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                }`}
-              >
-                <span>{b}</span>
-                {isSelected && <Check className="w-3 h-3 text-sky-400" />}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Category Filter */}
-      <div>
-        <label className="text-xs font-bold text-zinc-300 mb-2.5 block uppercase tracking-wider">
-          หมวดหมู่ (Category)
-        </label>
-        <div className="flex flex-wrap gap-1.5">
-          {CATEGORIES.map((c) => {
-            const isSelected = filter.categories.includes(c);
-            return (
-              <button
-                key={c}
-                type="button"
-                onClick={() => toggleCategory(c)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
-                    : 'bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
-                }`}
-              >
-                {c}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Price Range Slider */}
-      <div>
-        <div className="flex items-center justify-between text-xs font-bold text-zinc-300 mb-2 uppercase tracking-wider">
-          <span>ช่วงราคา (THB)</span>
-          <span className="text-sky-400">฿{filter.maxPrice.toLocaleString('th-TH')}</span>
-        </div>
-        <input
-          type="range"
-          min="2000"
-          max="10000"
-          step="200"
-          value={filter.maxPrice}
-          onChange={(e) => onChange({ ...filter, maxPrice: Number(e.target.value) })}
-          className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-        />
-        <div className="flex justify-between text-[11px] text-zinc-500 mt-1">
-          <span>฿2,000</span>
-          <span>฿6,000</span>
-          <span>฿10,000+</span>
-        </div>
-
-        {/* Quick Price Buttons */}
-        <div className="grid grid-cols-3 gap-1.5 mt-2.5">
-          <button
-            onClick={() => onChange({ ...filter, minPrice: 0, maxPrice: 4000 })}
-            className="px-2 py-1 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-sky-400 hover:border-sky-500/40"
+        <div className="relative">
+          <select
+            value={filters.sortBy}
+            onChange={event => onChange({ sortBy: event.target.value as FilterState['sortBy'] })}
+            className="h-[42px] appearance-none rounded-full border border-line bg-white/70 pl-4 pr-9 text-[11px] font-semibold text-ink outline-none focus:border-ink/40"
+            aria-label="เรียงลำดับสินค้า"
           >
-            &lt; ฿4,000
-          </button>
-          <button
-            onClick={() => onChange({ ...filter, minPrice: 4000, maxPrice: 6500 })}
-            className="px-2 py-1 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-sky-400 hover:border-sky-500/40"
-          >
-            ฿4k - ฿6.5k
-          </button>
-          <button
-            onClick={() => onChange({ ...filter, minPrice: 6500, maxPrice: 15000 })}
-            className="px-2 py-1 rounded text-[10px] bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-sky-400 hover:border-sky-500/40"
-          >
-            &gt; ฿6.5k
-          </button>
+            {SORTS.map(sort => (
+              <option key={sort.value} value={sort.value}>
+                {sort.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted" />
         </div>
       </div>
 
-      {/* Shoe Sizes Filter */}
-      <div>
-        <label className="text-xs font-bold text-zinc-300 mb-2 block uppercase tracking-wider">
-          ขนาดไซส์ (Size)
-        </label>
-        <div className="grid grid-cols-4 gap-1.5">
-          {SIZES.map((sz) => {
-            const isSelected = filter.selectedSize === sz;
-            return (
-              <button
-                key={sz}
-                type="button"
-                onClick={() => onChange({ ...filter, selectedSize: isSelected ? '' : sz })}
-                className={`py-1.5 rounded-lg text-[11px] font-semibold border transition-all ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md font-bold'
-                    : 'bg-zinc-950/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
-                }`}
-              >
-                {sz.replace('US ', '')}
-              </button>
-            );
-          })}
-        </div>
+      <div className="no-scrollbar mt-3 flex items-center gap-2 overflow-x-auto pb-0.5">
+        <button
+          type="button"
+          onClick={() => onChange({ categories: [] })}
+          className={cx(
+            'shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] font-semibold transition-colors',
+            filters.categories.length === 0
+              ? 'border-ink bg-ink text-cream'
+              : 'border-line bg-white/60 text-ink/70 hover:border-ink/35'
+          )}
+        >
+          ทั้งหมด <span className="ml-1 opacity-55">{total}</span>
+        </button>
+        {PRODUCT_CATEGORIES.map(category => {
+          const active = filters.categories.includes(category);
+          return (
+            <button
+              key={category}
+              type="button"
+              onClick={() => toggleCategory(category)}
+              className={cx(
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-[10px] font-semibold transition-colors',
+                active
+                  ? 'border-ink bg-ink text-cream'
+                  : 'border-line bg-white/60 text-ink/70 hover:border-ink/35'
+              )}
+            >
+              {CATEGORY_META[category].label}
+              <span className="ml-1 opacity-55">{counts[category] || 0}</span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Result Count Status */}
-      <div className="pt-2 border-t border-zinc-800/80 text-center text-xs text-zinc-400">
-        พบสินค้าทั้งหมด <span className="font-bold text-sky-400">{totalProductsCount}</span> รายการ
+      {expanded && (
+        <div className="animate-fade-up mt-4 grid gap-6 border-t border-line/80 pt-4 md:grid-cols-[1fr_1.1fr_auto]">
+          <div>
+            <p className="label-xs">แบรนด์</p>
+            <div className="flex flex-wrap gap-1.5">
+              {brands.map(brand => {
+                const active = filters.brands.includes(brand);
+                return (
+                  <button
+                    key={brand}
+                    type="button"
+                    onClick={() => toggleBrand(brand)}
+                    className={cx(
+                      'rounded-full border px-2.5 py-1 text-[9px] font-semibold transition-colors',
+                      active
+                        ? 'border-clay bg-clay text-white'
+                        : 'border-line bg-white/60 text-ink/65 hover:border-clay/45'
+                    )}
+                  >
+                    {brand}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="label-xs mb-0">ราคาสูงสุด</p>
+              <span className="text-[10px] font-bold">{formatPrice(filters.maxPrice)}</span>
+            </div>
+            <input
+              type="range"
+              min={500}
+              max={8000}
+              step={100}
+              value={filters.maxPrice}
+              onChange={event => onChange({ maxPrice: Number(event.target.value) })}
+              className="mt-3 h-1.5 w-full appearance-none rounded-full bg-sand-deep accent-clay"
+              aria-label="ราคาสูงสุด"
+            />
+            <div className="mt-1.5 flex justify-between text-[8px] text-muted">
+              <span>฿500</span>
+              <span>฿8,000</span>
+            </div>
+          </div>
+
+          <div className="flex items-end justify-between gap-4 md:flex-col md:items-end md:justify-end">
+            <label className="flex cursor-pointer items-center gap-2.5 text-[10px] font-semibold">
+              <span className="relative inline-flex h-5 w-9 items-center">
+                <input
+                  type="checkbox"
+                  checked={filters.inStockOnly}
+                  onChange={event => onChange({ inStockOnly: event.target.checked })}
+                  className="peer sr-only"
+                />
+                <span className="absolute inset-0 rounded-full bg-sand-deep transition-colors peer-checked:bg-ink" />
+                <span className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+              </span>
+              มีสินค้าพร้อมส่ง
+            </label>
+            <button
+              type="button"
+              onClick={onReset}
+              className="flex items-center gap-1.5 text-[10px] font-semibold text-clay hover:underline"
+            >
+              <RotateCcw className="h-3 w-3" /> ล้างตัวกรอง
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2 text-[9px] font-medium text-muted md:hidden">
+        <ListFilter className="h-3 w-3" /> แสดง {resultCount} จาก {total} รายการ
       </div>
-    </aside>
+    </div>
   );
-};
+}

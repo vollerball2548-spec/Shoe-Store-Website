@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: patsakorn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: patsakorn_mix_shop
+      POSTGRES_USER: patsakorn
+      POSTGRES_PASSWORD: patsakorn
+    ports:
+      - "5432:5432"
+    volumes:
+      - patsakorn_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U patsakorn -d patsakorn_mix_shop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  patsakorn_pgdata:

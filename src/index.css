@@ -1,1 +1,246 @@
 @import "tailwindcss";
+
+@theme {
+  --color-cream: #f7f2e8;
+  --color-cream-soft: #fbf8f1;
+  --color-sand: #ece3d3;
+  --color-sand-deep: #ddd1bd;
+  --color-ink: #171512;
+  --color-ink-soft: #2b2823;
+  --color-muted: #7c7366;
+  --color-line: #ddd3c3;
+  --color-clay: #c4683f;
+  --color-clay-soft: #ead2c3;
+  --color-amber: #e2b84b;
+  --color-sage: #a3ad94;
+  --color-sage-soft: #dbe0d2;
+
+  --font-display: "Manrope", "IBM Plex Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Thai", "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--color-clay);
+  color: #fffaf2;
+}
+
+/* ---------- Scrollbars ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c8bcaa transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #c8bcaa;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Announcement marquee ---------- */
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.marquee-track {
+  display: inline-flex;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floaty {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float {
+  animation: floaty 5s ease-in-out infinite;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
+/* ---------- Editorial helpers ---------- */
+.hero-wash {
+  background:
+    radial-gradient(ellipse 70% 60% at 78% 40%, rgba(226, 184, 75, 0.14), transparent 65%),
+    radial-gradient(ellipse 55% 55% at 20% 20%, rgba(255, 255, 255, 0.55), transparent 70%),
+    linear-gradient(135deg, #f8f3e9 0%, #f1e9db 58%, #e9dfcf 100%);
+}
+
+.image-blend {
+  mix-blend-mode: multiply;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.link-underline {
+  position: relative;
+}
+
+.link-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.25s ease;
+}
+
+.link-underline:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ---------- Forms ---------- */
+.field {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: 0.875rem;
+  background: #fffdf8;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.field:focus {
+  border-color: var(--color-ink);
+  box-shadow: 0 0 0 3px rgba(23, 21, 18, 0.06);
+}
+
+.field::placeholder {
+  color: #a69c8d;
+}
+
+.label-xs {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+}
+
+/* ---------- Admin terminal ---------- */
+.terminal-scroll {
+  scrollbar-color: #5f594f transparent;
+}

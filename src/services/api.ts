@@ -1,132 +1,212 @@
-import { ShoeProduct, Order, QueueJob, User, AdminAnalytics, FilterState } from '../types';
+import {
+  AdminAnalytics,
+  AuthResponse,
+  DbStatus,
+  FilterState,
+  Order,
+  OrderStatus,
+  Product,
+  QueueJob,
+  SqlQueryResult,
+  User
+} from '../types';
+
+const TOKEN_KEY = 'patsakorn.token';
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeToken(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearStoredToken() {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status = 500) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = getStoredToken();
+  const headers = new Headers(init.headers);
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+
+  const response = await fetch(path, { ...init, headers });
+  let payload: any = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload?.message || `เกิดข้อผิดพลาด (${response.status})`;
+    throw new ApiError(message, response.status);
+  }
+  return payload as T;
+}
+
+export interface CheckoutPayload {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  items: { productId: string; selectedVariant: string; quantity: number }[];
+  couponCode?: string;
+  paymentMethod: 'PromptPay' | 'CreditCard' | 'COD';
+  shippingAddress: Order['shippingAddress'];
+}
 
 export const api = {
-  // Products
-  async getProducts(filter?: Partial<FilterState>): Promise<ShoeProduct[]> {
+  async getProducts(filter: Partial<FilterState> = {}): Promise<Product[]> {
     const params = new URLSearchParams();
-    if (filter?.search) params.append('search', filter.search);
-    if (filter?.brands && filter.brands.length > 0) params.append('brand', filter.brands.join(','));
-    if (filter?.categories && filter.categories.length > 0) params.append('category', filter.categories.join(','));
-    if (filter?.gender && filter.gender !== 'All') params.append('gender', filter.gender);
-    if (filter?.minPrice) params.append('minPrice', filter.minPrice.toString());
-    if (filter?.maxPrice) params.append('maxPrice', filter.maxPrice.toString());
-    if (filter?.inStockOnly) params.append('inStock', 'true');
-    if (filter?.sortBy) params.append('sortBy', filter.sortBy);
-
-    const res = await fetch(`/api/products?${params.toString()}`);
-    const data = await res.json();
-    return data.data;
+    if (filter.search) params.set('search', filter.search);
+    if (filter.brands?.length) params.set('brand', filter.brands.join(','));
+    if (filter.categories?.length) params.set('category', filter.categories.join(','));
+    if (filter.maxPrice != null) params.set('maxPrice', String(filter.maxPrice));
+    if (filter.inStockOnly) params.set('inStock', 'true');
+    if (filter.sortBy) params.set('sortBy', filter.sortBy);
+    const result = await request<{ data: Product[] }>(`/api/products?${params.toString()}`);
+    return result.data;
   },
 
-  async getProductById(id: string): Promise<ShoeProduct> {
-    const res = await fetch(`/api/products/${id}`);
-    const data = await res.json();
-    return data.data;
+  async getProduct(id: string): Promise<Product> {
+    const result = await request<{ data: Product }>(`/api/products/${encodeURIComponent(id)}`);
+    return result.data;
   },
 
-  async createProduct(productData: Partial<ShoeProduct>): Promise<ShoeProduct> {
-    const res = await fetch('/api/products', {
+  async createProduct(input: Partial<Product>): Promise<Product> {
+    const result = await request<{ data: Product }>('/api/products', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(productData)
+      body: JSON.stringify(input)
     });
-    const data = await res.json();
-    return data.data;
+    return result.data;
   },
 
-  async updateProduct(id: string, productData: Partial<ShoeProduct>): Promise<ShoeProduct> {
-    const res = await fetch(`/api/products/${id}`, {
+  async updateProduct(id: string, input: Partial<Product>): Promise<Product> {
+    const result = await request<{ data: Product }>(`/api/products/${encodeURIComponent(id)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(productData)
+      body: JSON.stringify(input)
     });
-    const data = await res.json();
-    return data.data;
+    return result.data;
   },
 
   async deleteProduct(id: string): Promise<void> {
-    await fetch(`/api/products/${id}`, {
-      method: 'DELETE'
-    });
+    await request(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  // Auth
-  async login(email: string, role?: 'CUSTOMER' | 'ADMIN'): Promise<{ token: string; user: User }> {
-    const res = await fetch('/api/auth/login', {
+  async login(email: string, password: string): Promise<AuthResponse> {
+    return request<AuthResponse>('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role })
+      body: JSON.stringify({ email, password })
     });
-    return res.json();
   },
 
-  async register(userData: { name: string; email: string; phone: string }): Promise<{ token: string; user: User }> {
-    const res = await fetch('/api/auth/register', {
+  async register(input: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return request<AuthResponse>('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData)
+      body: JSON.stringify(input)
     });
-    return res.json();
   },
 
-  // Orders
-  async getOrders(userId?: string, status?: string): Promise<Order[]> {
+  async me(): Promise<User> {
+    const result = await request<{ user: User }>('/api/auth/me');
+    return result.user;
+  },
+
+  async getOrders(status?: string): Promise<Order[]> {
     const params = new URLSearchParams();
-    if (userId) params.append('userId', userId);
-    if (status) params.append('status', status);
-    const res = await fetch(`/api/orders?${params.toString()}`);
-    const data = await res.json();
-    return data.data;
+    if (status && status !== 'ALL') params.set('status', status);
+    const result = await request<{ data: Order[] }>(`/api/orders?${params.toString()}`);
+    return result.data;
   },
 
   async getOrderById(id: string): Promise<Order> {
-    const res = await fetch(`/api/orders/${id}`);
-    const data = await res.json();
-    return data.data;
+    const result = await request<{ data: Order }>(`/api/orders/${encodeURIComponent(id)}`);
+    return result.data;
   },
 
-  async createOrder(orderPayload: any): Promise<Order> {
-    const res = await fetch('/api/orders', {
+  async createOrder(payload: CheckoutPayload): Promise<Order> {
+    const result = await request<{ data: Order }>('/api/orders', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderPayload)
+      body: JSON.stringify(payload)
     });
-    const data = await res.json();
-    return data.data;
+    return result.data;
   },
 
-  async updateOrderStatus(id: string, status: string, note?: string): Promise<Order> {
-    const res = await fetch(`/api/orders/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, note })
-    });
-    const data = await res.json();
-    return data.data;
+  async updateOrderStatus(id: string, status: OrderStatus, note?: string): Promise<Order> {
+    const result = await request<{ data: Order }>(
+      `/api/orders/${encodeURIComponent(id)}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status, note })
+      }
+    );
+    return result.data;
   },
 
-  // Admin Analytics
-  async getAdminAnalytics(): Promise<AdminAnalytics> {
-    const res = await fetch('/api/analytics/dashboard');
-    const data = await res.json();
-    return data.data;
+  async getAnalytics(): Promise<AdminAnalytics> {
+    const result = await request<{ data: AdminAnalytics }>('/api/analytics/dashboard');
+    return result.data;
   },
 
-  // BullMQ Queue Monitor
-  async getQueueJobs(): Promise<{ metrics: any; jobs: QueueJob[] }> {
-    const res = await fetch('/api/queue/jobs');
-    const data = await res.json();
-    return data;
+  async getQueueJobs(): Promise<{
+    metrics: { waiting: number; active: number; completed: number; failed: number };
+    jobs: QueueJob[];
+  }> {
+    return request('/api/queue/jobs');
   },
 
   async retryJob(id: string): Promise<QueueJob> {
-    const res = await fetch(`/api/queue/jobs/retry/${id}`, { method: 'POST' });
-    const data = await res.json();
-    return data.data;
+    const result = await request<{ data: QueueJob }>(
+      `/api/queue/jobs/retry/${encodeURIComponent(id)}`,
+      { method: 'POST' }
+    );
+    return result.data;
   },
 
-  async triggerInventorySync(): Promise<any> {
-    const res = await fetch('/api/queue/trigger-sync', { method: 'POST' });
-    return res.json();
+  async triggerInventorySync(): Promise<QueueJob> {
+    const result = await request<{ job: QueueJob }>('/api/queue/trigger-sync', {
+      method: 'POST',
+      body: JSON.stringify({})
+    });
+    return result.job;
+  },
+
+  async getDbStatus(): Promise<DbStatus> {
+    const result = await request<{ data: DbStatus }>('/api/admin/db/status');
+    return result.data;
+  },
+
+  async runSql(sql: string): Promise<SqlQueryResult> {
+    const result = await request<{ data: SqlQueryResult }>('/api/admin/db/query', {
+      method: 'POST',
+      body: JSON.stringify({ sql })
+    });
+    return result.data;
+  },
+
+  async subscribeNewsletter(email: string): Promise<{ created: boolean; message: string }> {
+    return request('/api/newsletter', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
   }
 };

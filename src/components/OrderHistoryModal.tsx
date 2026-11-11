@@ -1,247 +1,339 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  Package, 
-  Truck, 
-  CheckCircle2, 
-  Clock, 
-  ChevronDown, 
-  ChevronUp, 
-  Copy, 
-  Check, 
-  FileText, 
-  ExternalLink,
-  ShieldCheck
+import { useEffect, useState } from 'react';
+import {
+  ChevronDown,
+  Clock3,
+  MapPin,
+  Package,
+  RefreshCw,
+  Truck,
+  X
 } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, User } from '../types';
+import { api } from '../services/api';
+import {
+  ORDER_STATUS_META,
+  PAYMENT_LABELS,
+  cx,
+  formatDate,
+  formatPrice
+} from '../lib/utils';
 
 interface OrderHistoryModalProps {
-  isOpen: boolean;
+  open: boolean;
+  user: User | null;
   onClose: () => void;
-  orders: Order[];
+  onLogin: () => void;
 }
 
-export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
-  isOpen,
-  onClose,
-  orders
-}) => {
-  if (!isOpen) return null;
+const STATUS_FILTERS: Array<{ value: 'ALL' | OrderStatus; label: string }> = [
+  { value: 'ALL', label: 'ทั้งหมด' },
+  { value: 'PENDING', label: 'รอดำเนินการ' },
+  { value: 'PROCESSING', label: 'กำลังเตรียม' },
+  { value: 'SHIPPED', label: 'จัดส่งแล้ว' },
+  { value: 'DELIVERED', label: 'สำเร็จ' },
+  { value: 'CANCELLED', label: 'ยกเลิก' }
+];
 
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(orders[0]?.id || null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+export function OrderHistoryModal({ open, user, onClose, onLogin }: OrderHistoryModalProps) {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState<'ALL' | OrderStatus>('ALL');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const getStatusBadge = (status: OrderStatus) => {
-    switch (status) {
-      case 'PENDING':
-        return <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">รอดำเนินการ (Pending)</span>;
-      case 'PROCESSING':
-        return <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-500/20 text-sky-400 border border-sky-500/30">กำลังจัดเตรียม (Processing)</span>;
-      case 'SHIPPED':
-        return <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">ส่งมอบขนส่งแล้ว (Shipped)</span>;
-      case 'DELIVERED':
-        return <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-500/20 text-sky-400 border border-blue-500/30">จัดส่งสำเร็จ (Delivered)</span>;
-      case 'CANCELLED':
-        return <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">ยกเลิกแล้ว (Cancelled)</span>;
+  const load = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.getOrders();
+      setOrders(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'ไม่สามารถโหลดรายการคำสั่งซื้อได้');
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md overflow-y-auto">
-      <div 
-        id="order-history-modal"
-        className="relative w-full max-w-3xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]"
-      >
-        {/* Header */}
-        <div className="p-5 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-sky-400">
-              <Package className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-base font-black text-white">ประวัติคำสั่งซื้อและสถานะพัสดุ</h2>
-              <p className="text-xs text-zinc-400">ติดตามสถานะออเดอร์และเลขพัสดุเรียลไทม์</p>
-            </div>
-          </div>
+  useEffect(() => {
+    if (!open) return;
+    setExpanded(null);
+    setFilter('ALL');
+    void load();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = previous;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.id]);
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
+  if (!open) return null;
+
+  const filtered = filter === 'ALL' ? orders : orders.filter(order => order.orderStatus === filter);
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-5">
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute inset-0 bg-ink/45 backdrop-blur-sm"
+        aria-label="ปิดประวัติคำสั่งซื้อ"
+      />
+      <div className="animate-scale-in relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[28px] bg-cream shadow-2xl sm:max-h-[86vh] sm:rounded-[30px]">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4 sm:px-7">
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-clay">My orders</p>
+            <h2 className="mt-0.5 text-lg font-extrabold tracking-[-0.025em]">คำสั่งซื้อของฉัน</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {user && (
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="grid h-9 w-9 place-items-center rounded-full border border-line transition-colors hover:bg-sand/60"
+                aria-label="โหลดใหม่"
+              >
+                <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-full border border-line transition-colors hover:bg-sand/60"
+              aria-label="ปิด"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
-          {orders.length === 0 ? (
-            <div className="text-center py-12 text-zinc-400">
-              <Package className="w-12 h-12 mx-auto text-zinc-600 mb-3" />
-              <p className="font-bold text-white text-base">ยังไม่มีประวัติคำสั่งซื้อ</p>
-              <p className="text-xs text-zinc-500 mt-1">เมื่อคุณสั่งซื้อรองเท้า รายการจะปรากฏที่นี่</p>
-            </div>
-          ) : (
-            orders.map((order) => {
-              const isExpanded = expandedOrderId === order.id;
-
-              return (
-                <div
-                  key={order.id}
-                  className="bg-zinc-950/70 border border-zinc-800 rounded-2xl overflow-hidden transition-all shadow-md"
+        {!user ? (
+          <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-sand/70">
+              <Package className="h-7 w-7 text-ink/45" />
+            </span>
+            <h3 className="mt-4 text-lg font-bold tracking-[-0.02em]">
+              เข้าสู่ระบบเพื่อดูคำสั่งซื้อ
+            </h3>
+            <p className="mt-1.5 max-w-sm text-[11px] leading-relaxed text-muted">
+              เมื่อเข้าสู่ระบบแล้ว คุณจะติดตามสถานะการจัดส่งและดูประวัติการสั่งซื้อทั้งหมดได้ที่นี่
+            </p>
+            <button
+              type="button"
+              onClick={onLogin}
+              className="mt-5 rounded-full bg-ink px-5 py-2.5 text-[11px] font-semibold text-cream"
+            >
+              เข้าสู่ระบบ
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="no-scrollbar flex gap-2 overflow-x-auto border-b border-line/70 px-5 py-3 sm:px-7">
+              {STATUS_FILTERS.map(item => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setFilter(item.value)}
+                  className={cx(
+                    'shrink-0 rounded-full border px-3 py-1.5 text-[9px] font-semibold transition-colors',
+                    filter === item.value
+                      ? 'border-ink bg-ink text-cream'
+                      : 'border-line bg-white/60 text-ink/65 hover:border-ink/30'
+                  )}
                 >
-                  {/* Summary Bar */}
-                  <div
-                    onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
-                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-zinc-900/60 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="hidden sm:flex -space-x-3 overflow-hidden">
-                        {order.items.slice(0, 3).map((item, idx) => (
-                          <img
-                            key={idx}
-                            src={item.image}
-                            alt="shoe"
-                            className="inline-block h-10 w-10 rounded-xl ring-2 ring-zinc-900 object-cover bg-zinc-800"
-                          />
-                        ))}
-                      </div>
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-white">{order.id}</span>
-                          {getStatusBadge(order.orderStatus)}
+            <div className="flex-1 overflow-y-auto px-5 py-4 sm:px-7">
+              {loading && orders.length === 0 && (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(item => (
+                    <div key={item} className="h-24 animate-pulse rounded-2xl bg-sand/60" />
+                  ))}
+                </div>
+              )}
+
+              {error && (
+                <p className="rounded-xl border border-clay/25 bg-clay-soft/35 px-3 py-2 text-[10px] text-clay">
+                  {error}
+                </p>
+              )}
+
+              {!loading && !error && filtered.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <span className="grid h-14 w-14 place-items-center rounded-full bg-sand/70">
+                    <Package className="h-6 w-6 text-ink/40" />
+                  </span>
+                  <p className="mt-3 text-sm font-bold">ยังไม่มีคำสั่งซื้อในหมวดนี้</p>
+                  <p className="mt-1 text-[10px] text-muted">
+                    เมื่อคุณสั่งซื้อสินค้า รายการจะแสดงที่นี่
+                  </p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {filtered.map(order => {
+                  const status = ORDER_STATUS_META[order.orderStatus];
+                  const isOpen = expanded === order.id;
+                  return (
+                    <div
+                      key={order.id}
+                      className="overflow-hidden rounded-2xl border border-line/85 bg-cream-soft/55"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(isOpen ? null : order.id)}
+                        className="flex w-full items-center gap-3 p-3.5 text-left sm:p-4"
+                      >
+                        <div className="flex -space-x-2.5">
+                          {order.items.slice(0, 3).map(item => (
+                            <span
+                              key={`${item.productId}-${item.selectedVariant}`}
+                              className="h-11 w-11 overflow-hidden rounded-lg border-2 border-cream bg-sand"
+                            >
+                              <img
+                                src={item.image}
+                                alt={item.productName}
+                                className="h-full w-full object-cover"
+                              />
+                            </span>
+                          ))}
                         </div>
-                        <p className="text-xs text-zinc-400 mt-1">
-                          {new Date(order.createdAt).toLocaleDateString('th-TH', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })} • {order.items.reduce((s, i) => s + i.quantity, 0)} คู่
-                        </p>
-                      </div>
-                    </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-mono text-[10px] font-bold">{order.id}</p>
+                            <span
+                              className={cx(
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[8px] font-bold',
+                                status.tone
+                              )}
+                            >
+                              <span className={cx('h-1 w-1 rounded-full', status.dot)} />
+                              {status.label}
+                            </span>
+                          </div>
+                          <p className="mt-1 truncate text-[10px] text-muted">
+                            {order.items.length} รายการ · {order.items.reduce((sum, item) => sum + item.quantity, 0)} ชิ้น
+                            · {formatDate(order.createdAt)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[13px] font-extrabold tracking-[-0.02em]">
+                            {formatPrice(order.totalAmount)}
+                          </p>
+                          <ChevronDown
+                            className={cx(
+                              'ml-auto mt-1 h-3.5 w-3.5 text-muted transition-transform',
+                              isOpen && 'rotate-180'
+                            )}
+                          />
+                        </div>
+                      </button>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className="text-sm font-black text-sky-400 block">
-                          ฿{order.totalAmount.toLocaleString('th-TH')}
-                        </span>
-                        <span className="text-[10px] text-zinc-500 uppercase">{order.paymentMethod}</span>
-                      </div>
-                      {isExpanded ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
-                    </div>
-                  </div>
+                      {isOpen && (
+                        <div className="animate-fade-up border-t border-line/70 px-3.5 pb-4 pt-3.5 sm:px-4">
+                          <div className="space-y-2.5">
+                            {order.items.map(item => (
+                              <div
+                                key={`${item.productId}-${item.selectedVariant}`}
+                                className="flex items-center gap-3"
+                              >
+                                <img
+                                  src={item.image}
+                                  alt={item.productName}
+                                  className="h-12 w-10 rounded-lg object-cover"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-[10px] font-semibold">
+                                    {item.productName}
+                                  </p>
+                                  <p className="text-[8px] text-muted">
+                                    {item.selectedVariant} · จำนวน {item.quantity}
+                                  </p>
+                                </div>
+                                <p className="text-[10px] font-bold">
+                                  {formatPrice(item.unitPrice * item.quantity)}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
 
-                  {/* Expanded Details */}
-                  {isExpanded && (
-                    <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/40 space-y-4 animate-in fade-in duration-150">
-                      {/* Tracking Card */}
-                      {order.trackingNumber && (
-                        <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <Truck className="w-5 h-5 text-sky-400" />
-                            <div>
-                              <p className="text-xs font-bold text-white">{order.carrier || 'Kerry Express'}</p>
-                              <p className="text-xs text-sky-400 font-mono font-bold mt-0.5">{order.trackingNumber}</p>
+                          <div className="mt-3 grid gap-2 border-t border-line/60 pt-3 sm:grid-cols-2">
+                            <div className="rounded-xl bg-sand/35 p-2.5">
+                              <p className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.13em] text-muted">
+                                <MapPin className="h-2.5 w-2.5" /> ที่อยู่จัดส่ง
+                              </p>
+                              <p className="mt-1 text-[9px] leading-relaxed">
+                                {order.shippingAddress.fullName} · {order.shippingAddress.phone}
+                                <br />
+                                {order.shippingAddress.addressLine} {order.shippingAddress.district}{' '}
+                                {order.shippingAddress.province} {order.shippingAddress.postalCode}
+                              </p>
+                            </div>
+                            <div className="rounded-xl bg-sand/35 p-2.5">
+                              <p className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.13em] text-muted">
+                                <Truck className="h-2.5 w-2.5" /> การชำระเงินและการจัดส่ง
+                              </p>
+                              <p className="mt-1 text-[9px] leading-relaxed">
+                                {PAYMENT_LABELS[order.paymentMethod] || order.paymentMethod} ·{' '}
+                                {order.paymentStatus === 'PAID' ? 'ชำระแล้ว' : 'รอชำระ'}
+                                <br />
+                                {order.carrier || 'รอเลือกขนส่ง'}
+                                {order.trackingNumber ? ` · ${order.trackingNumber}` : ''}
+                              </p>
                             </div>
                           </div>
 
-                          <button
-                            onClick={() => handleCopy(order.trackingNumber!, `track-${order.id}`)}
-                            className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white flex items-center gap-1.5 transition-colors"
-                          >
-                            {copiedId === `track-${order.id}` ? (
-                              <>
-                                <Check className="w-3 h-3 text-sky-400" />
-                                <span>คัดลอกแล้ว</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" />
-                                <span>คัดลอกเลขพัสดุ</span>
-                              </>
-                            )}
-                          </button>
+                          <div className="mt-3 border-t border-line/60 pt-3">
+                            <p className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-[0.13em] text-muted">
+                              <Clock3 className="h-2.5 w-2.5" /> ไทม์ไลน์
+                            </p>
+                            <div className="mt-2 space-y-2">
+                              {order.statusHistory.map((entry, index) => (
+                                <div key={`${entry.status}-${index}`} className="flex gap-2.5">
+                                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-clay" />
+                                  <div>
+                                    <p className="text-[9px] font-semibold">
+                                      {ORDER_STATUS_META[entry.status].label}{' '}
+                                      <span className="font-normal text-muted">
+                                        · {formatDate(entry.timestamp, true)}
+                                      </span>
+                                    </p>
+                                    <p className="text-[8px] leading-relaxed text-muted">
+                                      {entry.note}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-3 flex justify-between border-t border-line/60 pt-3 text-[9px]">
+                            <span className="text-muted">
+                              ยอดสินค้า {formatPrice(order.subtotal)}
+                              {order.discount > 0 && ` · ส่วนลด ${formatPrice(order.discount)}`}
+                              {` · ส่ง ${order.shippingFee === 0 ? 'ฟรี' : formatPrice(order.shippingFee)}`}
+                            </span>
+                            <span className="font-bold">รวม {formatPrice(order.totalAmount)}</span>
+                          </div>
                         </div>
                       )}
-
-                      {/* Status Timeline */}
-                      <div>
-                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 mb-3">
-                          ไทม์ไลน์สถานะออเดอร์ (Status Flow Timeline)
-                        </h4>
-                        <div className="space-y-2 border-l-2 border-zinc-800 ml-3 pl-4">
-                          {order.statusHistory.map((step, idx) => (
-                            <div key={idx} className="relative group">
-                              <div className="absolute -left-[23px] top-1 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-zinc-900" />
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-white">{step.status}</span>
-                                <span className="text-[10px] text-zinc-500">
-                                  {new Date(step.timestamp).toLocaleTimeString('th-TH')}
-                                </span>
-                              </div>
-                              <p className="text-xs text-zinc-400 mt-0.5">{step.note}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Items */}
-                      <div className="pt-2 border-t border-zinc-800">
-                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-zinc-400 mb-2">
-                          รายการสินค้าที่สั่ง
-                        </h4>
-                        <div className="space-y-2">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-950/60 border border-zinc-800/80">
-                              <div className="flex items-center gap-3">
-                                <img src={item.image} alt="shoe" className="w-12 h-12 rounded-lg object-cover bg-zinc-900" />
-                                <div>
-                                  <p className="text-xs font-bold text-white">{item.productName}</p>
-                                  <p className="text-[11px] text-zinc-400">
-                                    ไซส์: {item.selectedSize} • จำนวน: {item.quantity} คู่
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="text-xs font-bold text-white">
-                                ฿{(item.unitPrice * item.quantity).toLocaleString('th-TH')}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Address & Actions */}
-                      <div className="pt-2 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
-                        <div>
-                          <span className="font-semibold text-zinc-300">จัดส่งที่: </span>
-                          <span>{order.shippingAddress.fullName}, {order.shippingAddress.province}</span>
-                        </div>
-
-                        <button
-                          onClick={() => alert(`ใบเสร็จรับเงินสำหรับคำสั่งซื้อ #${order.id}\nยอดชำระ: ฿${order.totalAmount}\nสถานะ: ${order.paymentStatus}`)}
-                          className="text-sky-400 hover:underline flex items-center gap-1 font-semibold"
-                        >
-                          <FileText className="w-3.5 h-3.5" />
-                          <span>ดูใบเสร็จ</span>
-                        </button>
-                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
-};
+}

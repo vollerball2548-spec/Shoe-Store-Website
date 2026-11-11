@@ -1,6 +1,19 @@
-export type ShoeBrand = 'Nike' | 'Adidas' | 'Jordan' | 'New Balance' | 'Puma' | 'Asics' | 'Yeezy';
+export type ProductCategory =
+  | 'Sneakers'
+  | 'Apparel'
+  | 'Bags'
+  | 'Accessories'
+  | 'Tech'
+  | 'Home';
 
-export type ShoeCategory = 'Lifestyle' | 'Running' | 'Basketball' | 'Skateboarding' | 'Retro';
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  'Sneakers',
+  'Apparel',
+  'Bags',
+  'Accessories',
+  'Tech',
+  'Home'
+];
 
 export interface ProductReview {
   id: string;
@@ -10,39 +23,41 @@ export interface ProductReview {
   date: string;
 }
 
-export interface ProductSizeStock {
-  size: string; // e.g. "US 7.5", "US 8", "US 9"
+export interface ProductVariant {
+  label: string;
   stock: number;
 }
 
-export interface ShoeProduct {
+export interface Product {
   id: string;
   name: string;
-  brand: ShoeBrand;
-  category: ShoeCategory;
+  brand: string;
+  category: ProductCategory;
   price: number;
   originalPrice?: number;
   description: string;
   story: string;
   sku: string;
-  colorway: string;
+  subtitle: string;
   images: string[];
-  sizes: ProductSizeStock[];
+  variants: ProductVariant[];
   totalStock: number;
   rating: number;
   reviewCount: number;
   reviews: ProductReview[];
-  badge?: 'NEW' | 'BESTSELLER' | 'HOT' | 'LIMITED';
-  gender: 'Men' | 'Women' | 'Unisex';
+  badge?: 'NEW' | 'BESTSELLER' | 'HOT' | 'LIMITED' | 'SALE';
   isFeatured?: boolean;
   createdAt: string;
 }
 
+/** Kept as a friendly alias for older project files. */
+export type ShoeProduct = Product;
+
 export interface CartItem {
-  id: string; // unique cart line id
+  id: string;
   productId: string;
-  product: ShoeProduct;
-  selectedSize: string;
+  product: Product;
+  selectedVariant: string;
   quantity: number;
 }
 
@@ -51,9 +66,10 @@ export type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | '
 export interface OrderItem {
   productId: string;
   productName: string;
-  brand: ShoeBrand;
+  brand: string;
+  category: ProductCategory;
   image: string;
-  selectedSize: string;
+  selectedVariant: string;
   unitPrice: number;
   quantity: number;
 }
@@ -128,26 +144,56 @@ export interface AdminAnalytics {
   totalCustomers: number;
   pendingOrders: number;
   lowStockCount: number;
+  activeJobsCount: number;
   recentSales: {
     date: string;
+    label: string;
     revenue: number;
     orders: number;
   }[];
-  salesByBrand: {
-    brand: ShoeBrand;
+  salesByCategory: {
+    category: ProductCategory;
     sales: number;
     revenue: number;
   }[];
+  lowStockProducts: Product[];
+  recentOrders: Order[];
 }
 
 export interface FilterState {
   search: string;
-  brands: ShoeBrand[];
-  categories: ShoeCategory[];
-  gender: string;
-  minPrice: number;
+  categories: ProductCategory[];
+  brands: string[];
   maxPrice: number;
-  selectedSize: string;
   inStockOnly: boolean;
   sortBy: 'featured' | 'price-asc' | 'price-desc' | 'newest' | 'rating';
+}
+
+export interface SqlQueryResult {
+  columns: string[];
+  rows: Record<string, unknown>[];
+  rowCount: number;
+  durationMs: number;
+  truncated: boolean;
+}
+
+export interface DbTableInfo {
+  name: string;
+  label: string;
+  description: string;
+  columns: string[];
+  rowCount: number;
+}
+
+export interface DbStatus {
+  mode: 'postgres' | 'pg-mem';
+  label: string;
+  target: string;
+  tables: DbTableInfo[];
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token: string;
+  user: User;
 }
