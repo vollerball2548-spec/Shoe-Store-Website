@@ -209,6 +209,9 @@ Source of truth อยู่ที่ [`db/schema.sql`](db/schema.sql)
 
 ## Notes
 
+- รายการสินค้าในออเดอร์เก็บแบบ relational ใน `order_items` พร้อม snapshot ชื่อและราคาขณะสั่งซื้อ; `orders.items` ยังคงไว้ชั่วคราวเพื่อรองรับข้อมูลเดิม
+- หลัง deploy เวอร์ชันนี้ ให้รัน `db/migrations/001_backfill_order_items.sql` หนึ่งครั้งใน Supabase SQL Editor เพื่อคัดลอกรายการของออเดอร์เก่า (สคริปต์รันซ้ำได้)
+- ตรวจผลได้ด้วย `SELECT order_id, line_number, product_name, unit_price, quantity FROM order_items ORDER BY order_id, line_number;`
 - ระบบชำระเงินเป็น simulation เพื่อการ demo ไม่มีการตัดเงินจริง
 - Queue ใช้ `setTimeout` จำลอง worker แทน Redis/BullMQ แต่มี lifecycle, log, progress และ retry เหมือนระบบจริง
 - SQL Console เปิดเฉพาะคำสั่งอ่านข้อมูล (SELECT/WITH) และจำกัดผลลัพธ์ 200 แถว

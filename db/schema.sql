@@ -57,6 +57,22 @@ CREATE TABLE IF NOT EXISTS orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Relational order lines. Snapshot fields preserve what the customer bought
+-- even if a product is renamed or its price changes later.
+CREATE TABLE IF NOT EXISTS order_items (
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  line_number INTEGER NOT NULL CHECK (line_number > 0),
+  product_id TEXT REFERENCES products(id) ON DELETE SET NULL,
+  product_name TEXT NOT NULL,
+  brand TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  image TEXT,
+  selected_variant TEXT NOT NULL,
+  unit_price NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0),
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  PRIMARY KEY (order_id, line_number)
+);
+
 CREATE TABLE IF NOT EXISTS queue_jobs (
   id TEXT PRIMARY KEY,
   queue_name TEXT NOT NULL,
@@ -82,4 +98,5 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products (category);
 CREATE INDEX IF NOT EXISTS idx_products_brand ON products (brand);
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders (user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders (order_status);
+CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items (product_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON queue_jobs (status);
