@@ -56,6 +56,15 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-clay);
+  outline-offset: 3px;
+}
+
 ::selection {
   background: var(--color-clay);
   color: #fffaf2;
@@ -226,6 +235,13 @@ button {
   box-shadow: 0 0 0 3px rgba(23, 21, 18, 0.06);
 }
 
+input:not(.field):focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-clay);
+  outline-offset: 3px;
+}
+
 .field::placeholder {
   color: #a69c8d;
 }
@@ -238,6 +254,98 @@ button {
   text-transform: uppercase;
   color: var(--color-muted);
   margin-bottom: 0.4rem;
+}
+
+/* Consistent, quiet feedback across the storefront */
+button,
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled) {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 180ms;
+    transition-timing-function: ease;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.auth-field {
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.auth-field-with-action {
+  padding-right: 3.25rem;
+}
+
+.auth-content-enter {
+  animation: authContentEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-feature-enter {
+  animation: authFeatureEnter 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-promo-orbit {
+  animation: authOrbit 11s ease-in-out infinite alternate;
+}
+
+.auth-promo-glow {
+  animation: authGlow 9s ease-in-out infinite alternate;
+}
+
+.auth-promo-sparkle {
+  animation: authSparkle 2.8s ease-in-out infinite;
+}
+
+@keyframes authContentEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes authFeatureEnter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes authOrbit {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); }
+  to { transform: translate3d(-14px, 10px, 0) rotate(8deg); }
+}
+
+@keyframes authGlow {
+  from { opacity: 0.55; transform: translate3d(0, 0, 0) scale(0.96); }
+  to { opacity: 0.9; transform: translate3d(12px, -10px, 0) scale(1.05); }
+}
+
+@keyframes authSparkle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(12deg) scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-content-enter,
+  .auth-feature-enter,
+  .auth-promo-orbit,
+  .auth-promo-glow,
+  .auth-promo-sparkle {
+    animation: none !important;
+  }
 }
 
 /* ---------- Admin terminal ---------- */

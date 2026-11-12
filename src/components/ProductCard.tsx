@@ -26,11 +26,11 @@ export function ProductCard({ product, onView, onQuickAdd, className }: ProductC
 
   return (
     <article className={cx('group flex flex-col', className)}>
-      <div className="relative overflow-hidden rounded-[22px] bg-sand/55">
+      <div className="relative overflow-hidden rounded-[22px] bg-sand/55 shadow-[0_1px_0_rgba(23,21,18,0.04)] transition-all duration-300 group-hover:-translate-y-0.5 group-hover:shadow-[0_16px_34px_rgba(23,21,18,0.11)]">
         <button
           type="button"
           onClick={() => onView(product)}
-          className="block w-full text-left"
+          className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-clay"
           aria-label={`ดูรายละเอียด ${product.name}`}
         >
           <div className="aspect-[4/5] w-full overflow-hidden">
@@ -69,7 +69,7 @@ export function ProductCard({ product, onView, onQuickAdd, className }: ProductC
           <button
             type="button"
             onClick={() => onQuickAdd(product)}
-            className="absolute bottom-3 right-3 grid h-10 w-10 translate-y-1 place-items-center rounded-full bg-cream/95 text-ink opacity-0 shadow-[0_8px_24px_rgba(23,21,18,0.18)] backdrop-blur transition-all duration-300 hover:bg-ink hover:text-cream group-hover:translate-y-0 group-hover:opacity-100"
+            className="absolute bottom-3 right-3 grid h-10 w-10 translate-y-1 place-items-center rounded-full bg-cream/95 text-ink opacity-100 shadow-[0_8px_24px_rgba(23,21,18,0.18)] backdrop-blur transition-all duration-300 hover:bg-ink hover:text-cream sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
             aria-label={`เพิ่ม ${product.name} ลงตะกร้า`}
             title="เพิ่มลงตะกร้า"
           >

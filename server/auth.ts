@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 
-const AUTH_SECRET = process.env.AUTH_SECRET || 'patsakorn-mix-shop-dev-secret-change-me';
-const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
+let AUTH_SECRET = process.env.AUTH_SECRET || '';
+const TOKEN_TTL_SECONDS = 60 * 60 * 4;
 
 export interface TokenPayload {
   sub: string;
@@ -10,6 +10,13 @@ export interface TokenPayload {
   name: string;
   email: string;
   exp: number;
+}
+
+export function assertAuthConfig(production: boolean) {
+  if (!AUTH_SECRET && !production) AUTH_SECRET = crypto.randomBytes(32).toString('hex');
+  if (Buffer.byteLength(AUTH_SECRET, 'utf8') < 32 || /change-this|example|dev-secret/i.test(AUTH_SECRET)) {
+    throw new Error('Set AUTH_SECRET to a random secret of at least 32 characters in the service environment.');
+  }
 }
 
 const base64url = (input: string | Buffer) =>
@@ -24,20 +31,29 @@ const fromBase64url = (input: string) =>
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-  return `${salt}:${hash}`;
+  const hash = crypto.scryptSync(password, salt, 64, { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }).toString('hex');
+  return `scrypt$32768$${salt}$${hash}`;
 }
 
 export function verifyPassword(password: string, stored: string): boolean {
-  const [salt, hash] = stored.split(':');
+  const [algorithm, cost, salt, encodedHash] = stored.startsWith('scrypt$')
+    ? stored.split('$')
+    : ['legacy', '16384', ...stored.split(':')];
+  const hash = encodedHash;
   if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(password, salt, 64);
+  const candidate = crypto.scryptSync(password, salt, 64, {
+    N: Number(algorithm === 'legacy' ? 16384 : cost),
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024
+  });
   const expected = Buffer.from(hash, 'hex');
   if (candidate.length !== expected.length) return false;
   return crypto.timingSafeEqual(candidate, expected);
 }
 
 export function signToken(data: Omit<TokenPayload, 'exp'>): string {
+  if (!AUTH_SECRET) throw new Error('AUTH_SECRET is required before issuing login sessions.');
   const payload: TokenPayload = {
     ...data,
     exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS
@@ -51,6 +67,7 @@ export function signToken(data: Omit<TokenPayload, 'exp'>): string {
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
+    if (!AUTH_SECRET) return null;
     const [body, signature] = token.split('.');
     if (!body || !signature) return null;
     const expected = base64url(
@@ -68,9 +85,22 @@ export function verifyToken(token: string): TokenPayload | null {
 }
 
 function readToken(req: Request): string | null {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return null;
-  return header.slice(7).trim();
+  const cookieHeader = req.headers.cookie || '';
+  const cookie = cookieHeader.split(';').map(part => part.trim()).find(part => part.startsWith('auth_session='));
+  if (!cookie) return null;
+  try {
+    return decodeURIComponent(cookie.slice('auth_session='.length));
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthCookie(res: Response, token: string, secure: boolean) {
+  res.setHeader('Set-Cookie', `auth_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${TOKEN_TTL_SECONDS}${secure ? '; Secure' : ''}`);
+}
+
+export function clearAuthCookie(res: Response, secure: boolean) {
+  res.setHeader('Set-Cookie', `auth_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure ? '; Secure' : ''}`);
 }
 
 export function optionalAuth(req: Request, _res: Response, next: NextFunction) {

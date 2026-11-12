@@ -115,6 +115,7 @@ export interface Order {
 export interface User {
   id: string;
   name: string;
+  username: string;
   email: string;
   role: 'CUSTOMER' | 'ADMIN';
   avatar?: string;
@@ -194,6 +195,5 @@ export interface DbStatus {
 
 export interface AuthResponse {
   success: boolean;
-  token: string;
   user: User;
 }

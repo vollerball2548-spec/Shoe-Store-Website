@@ -11,22 +11,26 @@ import {
   User
 } from '../types';
 
-const TOKEN_KEY = 'patsakorn.token';
+const SESSION_KEY = 'patsakorn.authenticated';
+const LEGACY_TOKEN_KEY = 'patsakorn.token';
 
 export function getStoredToken(): string | null {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    // Old bearer tokens are removed; new sessions use an HttpOnly cookie.
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+    return localStorage.getItem(SESSION_KEY);
   } catch {
     return null;
   }
 }
 
-export function storeToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+export function storeToken() {
+  localStorage.setItem(SESSION_KEY, '1');
 }
 
 export function clearStoredToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 export class ApiError extends Error {
@@ -39,12 +43,10 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
   const headers = new Headers(init.headers);
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(path, { ...init, headers });
+  const response = await fetch(path, { ...init, headers, credentials: 'same-origin' });
   let payload: any = null;
   try {
     payload = await response.json();
@@ -107,15 +109,20 @@ export const api = {
     await request(`/api/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
 
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(username: string, password: string): Promise<AuthResponse> {
     return request<AuthResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ username, password })
     });
+  },
+
+  async logout(): Promise<void> {
+    await request('/api/auth/logout', { method: 'POST' });
   },
 
   async register(input: {
     name: string;
+    username: string;
     email: string;
     phone: string;
     password: string;
@@ -158,6 +165,14 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status, note })
       }
+    );
+    return result.data;
+  },
+
+  async markOrderPaid(id: string): Promise<Order> {
+    const result = await request<{ data: Order }>(
+      `/api/orders/${encodeURIComponent(id)}/payment`,
+      { method: 'PATCH', body: JSON.stringify({ paymentStatus: 'PAID' }) }
     );
     return result.data;
   },

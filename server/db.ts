@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { Pool, PoolClient } from 'pg';
-import { newDb } from 'pg-mem';
+import crypto from 'crypto';
+import { DataType, newDb } from 'pg-mem';
 import { INITIAL_JOBS, INITIAL_ORDERS, INITIAL_PRODUCTS } from '../src/data/mockProducts';
 import { hashPassword } from './auth';
 
@@ -10,45 +11,6 @@ export type DbMode = 'postgres' | 'pg-mem';
 let pool: Pool | null = null;
 let dbMode: DbMode = 'pg-mem';
 let initialized = false;
-
-const SEED_USERS = [
-  {
-    id: 'user-admin-1',
-    name: 'พัสกร (Admin)',
-    email: 'admin@patsakorn.shop',
-    password: 'admin1234',
-    role: 'ADMIN',
-    phone: '089-888-9999',
-    avatar:
-      'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=120&q=80'
-  },
-  {
-    id: 'user-customer-1',
-    name: 'พัสกร สุขเจริญ',
-    email: 'customer@patsakorn.shop',
-    password: 'customer1234',
-    role: 'CUSTOMER',
-    phone: '081-234-5678',
-    avatar:
-      'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80'
-  },
-  {
-    id: 'user-customer-2',
-    name: 'สมชาย ประเสริฐ',
-    email: 'somchai@patsakorn.shop',
-    password: 'somchai1234',
-    role: 'CUSTOMER',
-    phone: '086-555-1212'
-  },
-  {
-    id: 'user-customer-3',
-    name: 'อภิญญา วงศ์สุวรรณ',
-    email: 'apinya@patsakorn.shop',
-    password: 'apinya1234',
-    role: 'CUSTOMER',
-    phone: '089-987-6543'
-  }
-];
 
 async function createPostgresPool(): Promise<Pool | null> {
   const connectionString = process.env.DATABASE_URL;
@@ -81,6 +43,29 @@ async function createPostgresPool(): Promise<Pool | null> {
 
 function createMemoryPool(): Pool {
   const memory = newDb({ autoCreateForeignKeyIndices: true });
+  memory.public.registerFunction({
+    name: 'btrim',
+    args: [DataType.text],
+    returns: DataType.text,
+    implementation: (value: string) => value.trim()
+  });
+  memory.public.registerFunction({
+    name: 'split_part',
+    args: [DataType.text, DataType.text, DataType.integer],
+    returns: DataType.text,
+    implementation: (value: string, delimiter: string, field: number) => {
+      if (field === 0) return '';
+      if (!delimiter) return field === 1 ? value : '';
+      const parts = value.split(delimiter);
+      return parts[field > 0 ? field - 1 : parts.length + field] ?? '';
+    }
+  });
+  memory.public.registerFunction({
+    name: 'replace',
+    args: [DataType.text, DataType.text, DataType.text],
+    returns: DataType.text,
+    implementation: (value: string, search: string, replacement: string) => value.split(search).join(replacement)
+  });
   const adapter = memory.adapters.createPg();
   return new adapter.Pool() as unknown as Pool;
 }
@@ -99,22 +84,43 @@ async function ensureSchema() {
   }
 }
 
-async function seedUsers() {
+async function provisionAdmin() {
   if (!pool) return;
-  for (const user of SEED_USERS) {
+  const username = process.env.ADMIN_USERNAME?.trim().toLowerCase();
+  const password = process.env.ADMIN_PASSWORD;
+  if (!username && !password) return;
+  if (!username || !password) throw new Error('Set both ADMIN_USERNAME and ADMIN_PASSWORD.');
+
+  const existingAdmin = await pool.query("SELECT id FROM users WHERE role = 'ADMIN' ORDER BY created_at LIMIT 1");
+  const email = (process.env.ADMIN_EMAIL || 'shop-admin@patsakorn.shop').trim().toLowerCase();
+  const passwordHash = hashPassword(password);
+  if (existingAdmin.rows[0]) {
     await pool.query(
-      `INSERT INTO users (id, name, email, password_hash, role, phone, avatar)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        user.id,
-        user.name,
-        user.email,
-        hashPassword(user.password),
-        user.role,
-        user.phone,
-        user.avatar || null
-      ]
+      'UPDATE users SET username = $1, password_hash = $2, name = $3 WHERE id = $4',
+      [username, passwordHash, 'Shop Admin', existingAdmin.rows[0].id]
     );
+  } else {
+    const user = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)', [username, email]);
+    if (user.rows[0]) throw new Error('Configured admin username or email is already used by another account.');
+    await pool.query(
+      `INSERT INTO users (id, name, username, email, password_hash, role)
+       VALUES ($1, 'Shop Admin', $2, $3, $4, 'ADMIN')`,
+      [`admin-${crypto.randomUUID()}`, username, email, passwordHash]
+    );
+  }
+}
+
+async function disableLegacyDemoPasswords() {
+  if (!pool) return;
+  const applied = await pool.query(
+    "INSERT INTO app_migrations (name) VALUES ('disable-public-demo-passwords') ON CONFLICT DO NOTHING RETURNING name"
+  );
+  if (applied.rows.length === 0) return;
+  const legacyUsers = await pool.query(
+    "SELECT id FROM users WHERE LOWER(email) IN ('customer@patsakorn.shop', 'somchai@patsakorn.shop', 'apinya@patsakorn.shop')"
+  );
+  for (const user of legacyUsers.rows) {
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashPassword(crypto.randomBytes(48).toString('hex')), user.id]);
   }
 }
 
@@ -233,12 +239,13 @@ export async function initDb(): Promise<DbMode> {
   }
 
   await ensureSchema();
+  await disableLegacyDemoPasswords();
+  await provisionAdmin();
 
   const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM products');
   const productCount = Number(countResult.rows[0]?.count || 0);
 
   if (productCount === 0) {
-    await seedUsers();
     await seedProducts();
     await seedOrders();
     await seedJobs();

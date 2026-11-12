@@ -38,6 +38,11 @@ interface CheckoutModalProps {
 }
 
 const VALID_COUPONS = ['MIX10', 'MIX300', 'MIX500', 'MIX800', 'MIX1000', 'FREESHIP'];
+const STORE_BANK_ACCOUNT = {
+  bank: 'ธนาคารกสิกรไทย',
+  name: 'พัสกร รอดอินทร์',
+  number: '0698955309'
+};
 const THAI_PROVINCES = [
   'กรุงเทพมหานคร',
   'เชียงใหม่',
@@ -63,7 +68,7 @@ const PAYMENTS: Array<{
   description: string;
   icon: typeof QrCode;
 }> = [
-  { value: 'PromptPay', label: 'พร้อมเพย์', description: 'สแกน QR ผ่านแอปธนาคาร', icon: QrCode },
+  { value: 'PromptPay', label: 'โอนผ่านธนาคาร', description: 'รอตั้งค่าบัญชีรับเงินของร้าน', icon: QrCode },
   { value: 'CreditCard', label: 'บัตรเครดิต', description: 'Visa / Mastercard (จำลอง)', icon: CreditCard },
   { value: 'COD', label: 'เก็บเงินปลายทาง', description: 'ชำระเมื่อได้รับสินค้า', icon: Banknote }
 ];
@@ -94,6 +99,7 @@ export function CheckoutModal({
   const [placing, setPlacing] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState(false);
 
   // Reset the form only when the modal opens (or the signed-in customer changes).
   // Keeping this separate from the dismissal effect prevents parent re-renders,
@@ -160,6 +166,16 @@ export function CheckoutModal({
       setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+    }
+  };
+
+  const copyAccountNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(STORE_BANK_ACCOUNT.number);
+      setCopiedAccount(true);
+      window.setTimeout(() => setCopiedAccount(false), 1800);
+    } catch {
+      setCopiedAccount(false);
     }
   };
 
@@ -283,6 +299,23 @@ export function CheckoutModal({
                     คุณสามารถติดตามความคืบหน้าได้ที่หน้าคำสั่งซื้อ
                   </p>
                 </div>
+                {placedOrder.paymentMethod === 'PromptPay' && (
+                  <div className="mt-3 rounded-2xl border border-clay/25 bg-white/70 p-4 text-left">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-clay">โอนเงินเข้าบัญชีร้าน</p>
+                    <p className="mt-2 text-[10px] text-muted">{STORE_BANK_ACCOUNT.bank}</p>
+                    <p className="text-[12px] font-bold">{STORE_BANK_ACCOUNT.name}</p>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="font-mono text-base font-bold tracking-[0.08em]">{STORE_BANK_ACCOUNT.number}</p>
+                      <button type="button" onClick={() => void copyAccountNumber()} className="flex shrink-0 items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[9px] font-semibold">
+                        {copiedAccount ? <Check className="h-3 w-3 text-sage" /> : <Copy className="h-3 w-3" />}
+                        {copiedAccount ? 'คัดลอกแล้ว' : 'คัดลอกเลขบัญชี'}
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[9px] leading-relaxed text-muted">
+                      โอนยอด {formatPrice(placedOrder.totalAmount)} และใส่เลขคำสั่งซื้อ {placedOrder.id} ในหมายเหตุ จากนั้นแจ้งร้านพร้อมหลักฐานผ่านช่องทางติดต่อของร้าน คำสั่งซื้อจะยังรอชำระจนกว่าร้านจะยืนยันยอด
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
@@ -328,7 +361,7 @@ export function CheckoutModal({
             </div>
 
             <div className="grid flex-1 overflow-y-auto lg:grid-cols-[1.25fr_0.9fr]">
-              <form onSubmit={handlePlaceOrder} className="p-5 sm:p-7">
+              <form onSubmit={handlePlaceOrder} onChange={() => error && setError('')} className="p-5 sm:p-7">
                 {!user && (
                   <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-dashed border-line bg-cream-soft px-4 py-3">
                     <p className="text-[10px] text-muted">
@@ -520,7 +553,17 @@ export function CheckoutModal({
                 {paymentMethod === 'CreditCard' && (
                   <div className="animate-fade-up mt-3 rounded-2xl border border-line bg-white/50 p-3">
                     <p className="text-[9px] text-muted">
-                      โหมดสาธิต — ไม่มีการตัดเงินจริง ระบบจะบันทึกสถานะชำระเงินเป็นชำระแล้ว
+                      ยังไม่ได้เชื่อมผู้ให้บริการบัตร ระบบจะยังไม่เรียกเก็บเงินและบันทึกคำสั่งซื้อเป็นรอตรวจสอบ
+                    </p>
+                  </div>
+                )}
+
+                {paymentMethod === 'PromptPay' && (
+                  <div className="animate-fade-up mt-3 rounded-2xl border border-line bg-white/50 p-3">
+                    <p className="text-[9px] font-bold text-ink">{STORE_BANK_ACCOUNT.bank} · {STORE_BANK_ACCOUNT.name}</p>
+                    <p className="mt-1 font-mono text-[12px] font-bold tracking-[0.08em]">{STORE_BANK_ACCOUNT.number}</p>
+                    <p className="mt-1 text-[9px] leading-relaxed text-muted">
+                      หลังยืนยันคำสั่งซื้อ ระบบจะแสดงยอดและเลขคำสั่งซื้อสำหรับใส่ในหมายเหตุ โอนแล้วรอร้านตรวจสอบก่อนเปลี่ยนสถานะเป็นชำระแล้ว
                     </p>
                   </div>
                 )}

@@ -348,6 +348,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    void api.logout().catch(() => undefined);
     clearStoredToken();
     setUser(null);
     setView('store');
@@ -1033,13 +1034,6 @@ export default function App() {
                     <UserRound className="h-3 w-3" /> เข้าสู่ระบบสมาชิก
                   </button>
                 )}
-                <div className="mt-2 rounded-xl border border-line bg-cream px-3 py-2">
-                  <p className="text-[7px] font-bold uppercase tracking-[0.14em] text-muted">
-                    Demo admin
-                  </p>
-                  <p className="mt-0.5 text-[8px]">admin@patsakorn.shop</p>
-                  <p className="text-[8px] text-muted">admin1234</p>
-                </div>
               </div>
             </div>
           </div>

@@ -300,6 +300,21 @@ export function AdminDashboard({
     }
   };
 
+  const handlePaymentConfirmation = async (order: Order) => {
+    if (order.paymentStatus === 'PAID') return;
+    setBusyOrder(order.id);
+    try {
+      const updated = await api.markOrderPaid(order.id);
+      setOrders(current => current.map(item => (item.id === updated.id ? updated : item)));
+      setSelectedOrder(current => (current?.id === updated.id ? updated : current));
+      showToast(`ยืนยันรับชำระเงินคำสั่งซื้อ ${updated.id} แล้ว`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'ยืนยันการชำระเงินไม่สำเร็จ', 'error');
+    } finally {
+      setBusyOrder('');
+    }
+  };
+
   const handleDelete = async (product: Product) => {
     if (!window.confirm(`ยืนยันการลบ “${product.name}” ออกจากร้านหรือไม่?`)) return;
     try {
@@ -1612,6 +1627,17 @@ export function AdminDashboard({
             </div>
 
             <div className="mt-4">
+              {selectedOrder.paymentMethod === 'PromptPay' && selectedOrder.paymentStatus !== 'PAID' && (
+                <button
+                  type="button"
+                  disabled={busyOrder === selectedOrder.id}
+                  onClick={() => void handlePaymentConfirmation(selectedOrder)}
+                  className="mb-4 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-sage-soft text-[10px] font-bold text-ink disabled:opacity-50"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" /> ยืนยันว่าได้รับเงินโอนแล้ว
+                </button>
+              )}
+              <div>
               <p className="text-[8px] font-bold uppercase tracking-[0.14em] text-muted">
                 อัปเดตสถานะ
               </p>
@@ -1634,6 +1660,7 @@ export function AdminDashboard({
                     {item.label}
                   </button>
                 ))}
+              </div>
               </div>
             </div>
 

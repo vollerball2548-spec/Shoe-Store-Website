@@ -13,7 +13,7 @@
 - หน้ารายละเอียดสินค้า พร้อมตัวเลือก ไซส์ สต็อก รีวิว และเรื่องราวสินค้า
 - ตะกร้าแบบ drawer, ปรับจำนวน, แจ้งเตือนสต็อก และคำนวณส่งฟรีเมื่อครบ ฿1,500
 - Checkout พร้อมที่อยู่จัดส่ง, PromptPay / Credit Card / COD, คูปองส่วนลด และหน้าประกาศผลสำเร็จ
-- สมัครสมาชิก / เข้าสู่ระบบด้วยรหัสผ่านจริง (scrypt + HMAC token)
+- สมัครสมาชิก / เข้าสู่ระบบด้วย username ไม่ซ้ำ และรหัสผ่านแบบ scrypt
 - ประวัติคำสั่งซื้อพร้อมไทม์ไลน์สถานะและการติดตามพัสดุ
 - Newsletter form และ footer แบบ editorial
 
@@ -40,7 +40,7 @@
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, lucide-react
 - **Backend:** Express, TypeScript (tsx), Node `crypto`
 - **Database:** PostgreSQL 17 (หรือ 16+) ผ่าน `pg` หรือ in-memory PostgreSQL (`pg-mem`) เมื่อยังไม่ได้ตั้งค่า
-- **Auth:** scrypt password hashing + HMAC-SHA256 signed bearer token (หมดอายุ 7 วัน)
+- **Auth:** scrypt password hashing, signed session cookie แบบ HttpOnly/Secure/SameSite, อายุ 4 ชั่วโมง, username ไม่ซ้ำ และจำกัดการลองเข้าสู่ระบบ
 - **Fonts:** Manrope + IBM Plex Sans Thai
 
 ## Getting Started
@@ -73,11 +73,14 @@ npm run db:stop      # ปิดฐานข้อมูล
 
 ```env
 DATABASE_URL="postgres://patsakorn:patsakorn@localhost:5432/patsakorn_mix_shop"
-AUTH_SECRET="replace-with-a-long-random-string"
+AUTH_SECRET=""
+ADMIN_USERNAME=""
+ADMIN_EMAIL="shop-admin@patsakorn.shop"
+ADMIN_PASSWORD=""
 PORT=3000
 ```
 
-ฐานข้อมูลถูก seed แล้ว: 26 สินค้า, 11 คำสั่งซื้อ, 4 ผู้ใช้ หากต้องการรัน schema + seed ใหม่:
+ฐานข้อมูลตัวอย่างมีสินค้าและคำสั่งซื้อ แต่ไม่มีบัญชีผู้ใช้หรือรหัสผ่านตัวอย่าง ตั้ง `ADMIN_USERNAME` และ `ADMIN_PASSWORD` ใน `.env` หากต้องการบัญชีแอดมินในเครื่อง
 
 ```bash
 npm run db:init
@@ -101,7 +104,10 @@ docker compose up -d
 
 ```env
 DATABASE_URL="postgres://patsakorn:patsakorn@localhost:5432/patsakorn_mix_shop"
-AUTH_SECRET="replace-with-a-long-random-string"
+AUTH_SECRET=""
+ADMIN_USERNAME=""
+ADMIN_EMAIL="shop-admin@patsakorn.shop"
+ADMIN_PASSWORD=""
 PORT=3000
 ```
 
@@ -114,14 +120,11 @@ npm run dev
 
 ถ้ามี `DATABASE_URL` แต่เชื่อมต่อไม่ได้ เซิร์ฟเวอร์จะ fallback ไปใช้ pg-mem โดยอัตโนมัติและแจ้งเตือนใน console
 
-## Demo Accounts
+## Admin account configuration
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Admin | `admin@patsakorn.shop` | `admin1234` |
-| Customer | `customer@patsakorn.shop` | `customer1234` |
-| Customer | `somchai@patsakorn.shop` | `somchai1234` |
-| Customer | `apinya@patsakorn.shop` | `apinya1234` |
+ไม่มีบัญชีตัวอย่างที่ใช้รหัสผ่านสาธารณะแล้ว ให้ตั้ง `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` และ `AUTH_SECRET` ใน environment ของบริการก่อน deploy โดยรหัสแอดมินต้องยาวอย่างน้อย 16 ตัว ส่วนบัญชีสมาชิกต้องใช้รหัสผ่านอย่างน้อย 8 ตัว และตั้งรหัสใหม่ที่ไม่เคยส่งในแชตหรือ commit ใน Git
+
+สำหรับ Render ให้สร้าง `AUTH_SECRET` แบบสุ่มยาวอย่างน้อย 32 ตัวอักษร และใส่ค่าบัญชีผู้ดูแลเป็น environment variables เท่านั้น ไม่ใส่รหัสผ่านในไฟล์โค้ด
 
 เข้าหลังบ้านได้จากเมนู **หลังบ้าน** บน navbar หรือลิงก์ใน footer
 
@@ -151,6 +154,7 @@ npm run dev
 | `DELETE` | `/api/products/:id` | Admin |
 | `POST` | `/api/auth/register` | Public |
 | `POST` | `/api/auth/login` | Public |
+| `POST` | `/api/auth/logout` | Public (clears session cookie) |
 | `GET` | `/api/auth/me` | Customer / Admin |
 | `GET` | `/api/orders` | Customer (own) / Admin (all) |
 | `POST` | `/api/orders` | Public (guest checkout) / Customer |
@@ -164,15 +168,13 @@ npm run dev
 | `POST` | `/api/admin/db/query` | Admin |
 | `POST` | `/api/newsletter` | Public |
 
-Authorization ใช้ header:
+Session ใช้ cookie ที่ตั้งค่า `HttpOnly`, `SameSite=Strict` และ `Secure` บน HTTPS:
 
-```http
-Authorization: Bearer <token>
-```
+token ไม่ถูกส่งกลับไปให้ JavaScript หรือเก็บไว้ใน localStorage
 
 ## Database Schema
 
-- `users` — บัญชีลูกค้าและแอดมิน พร้อม scrypt password hash
+- `users` — บัญชีลูกค้าและแอดมิน พร้อม unique username และ scrypt password hash
 - `products` — แคตตาล็อก, JSONB images/variants/reviews, total stock
 - `orders` — คำสั่งซื้อ, shipping address, payment, status history (JSONB)
 - `queue_jobs` — งาน background และ log

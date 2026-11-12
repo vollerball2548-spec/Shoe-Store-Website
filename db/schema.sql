@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  username TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'CUSTOMER',
@@ -11,6 +12,20 @@ CREATE TABLE IF NOT EXISTS users (
   avatar TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS app_migrations (
+  name TEXT PRIMARY KEY,
+  applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Upgrade existing databases. Usernames derive from each account's email and
+-- an id suffix, so pre-existing duplicate names remain unique.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+UPDATE users
+SET username = LOWER(SPLIT_PART(email, '@', 1)) || '_' || REPLACE(id, '-', '_')
+WHERE username IS NULL OR BTRIM(username) = '';
+ALTER TABLE users ALTER COLUMN username SET NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_ci ON users (LOWER(username));
 
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,

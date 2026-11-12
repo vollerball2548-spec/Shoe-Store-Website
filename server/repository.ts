@@ -49,6 +49,7 @@ function mapUser(row: any): User {
   return {
     id: row.id,
     name: row.name,
+    username: row.username,
     email: row.email,
     role: row.role,
     phone: row.phone || undefined,
@@ -322,6 +323,17 @@ export async function findUserByEmail(
   };
 }
 
+export async function findUserByUsername(
+  username: string
+): Promise<{ user: User; passwordHash: string } | null> {
+  const result = await query('SELECT * FROM users WHERE LOWER(username) = LOWER($1)', [username.trim()]);
+  if (!result.rows[0]) return null;
+  return {
+    user: mapUser(result.rows[0]),
+    passwordHash: result.rows[0].password_hash
+  };
+}
+
 export async function findUserById(id: string): Promise<User | null> {
   const result = await query("SELECT * FROM users WHERE id = $1", [id]);
   return result.rows[0] ? mapUser(result.rows[0]) : null;
@@ -329,17 +341,19 @@ export async function findUserById(id: string): Promise<User | null> {
 
 export async function createUser(input: {
   name: string;
+  username: string;
   email: string;
   phone?: string;
   passwordHash: string;
 }): Promise<User> {
   const id = `user-${crypto.randomUUID().slice(0, 8)}`;
   await query(
-    `INSERT INTO users (id, name, email, password_hash, role, phone)
-     VALUES ($1, $2, $3, $4, 'CUSTOMER', $5)`,
+    `INSERT INTO users (id, name, username, email, password_hash, role, phone)
+     VALUES ($1, $2, $3, $4, $5, 'CUSTOMER', $6)`,
     [
       id,
       input.name.trim(),
+      input.username.trim().toLowerCase(),
       input.email.trim().toLowerCase(),
       input.passwordHash,
       input.phone || null,
@@ -524,7 +538,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
         totalAmount,
         input.couponCode || null,
         input.paymentMethod,
-        input.paymentMethod === "COD" ? "PENDING" : "PAID",
+        "PENDING",
         "PENDING",
         JSON.stringify(input.shippingAddress),
         null,
@@ -585,6 +599,18 @@ export async function updateOrderStatus(
 
   const order = await getOrder(id);
   if (!order) throw new AppError("ไม่สามารถอัปเดตคำสั่งซื้อได้", 500);
+  return order;
+}
+
+export async function markOrderPaid(id: string): Promise<Order> {
+  const existing = await getOrder(id);
+  if (!existing) throw new AppError("ไม่พบคำสั่งซื้อ", 404);
+  await query(
+    `UPDATE orders SET payment_status = 'PAID', updated_at = $2 WHERE id = $1`,
+    [id, new Date().toISOString()]
+  );
+  const order = await getOrder(id);
+  if (!order) throw new AppError("ไม่สามารถอัปเดตสถานะการชำระเงินได้", 500);
   return order;
 }
 
@@ -801,8 +827,8 @@ const DB_TABLE_DEFINITIONS: Omit<DbTableInfo, "rowCount">[] = [
   {
     name: "users",
     label: "ผู้ใช้",
-    description: "บัญชีลูกค้าและผู้ดูแลร้าน พร้อม password hash จาก scrypt",
-    columns: ["id", "name", "email", "password_hash", "role", "phone", "avatar", "created_at"],
+    description: "บัญชีลูกค้าและผู้ดูแลร้าน พร้อม username ไม่ซ้ำและ password hash จาก scrypt",
+    columns: ["id", "name", "username", "email", "password_hash", "role", "phone", "avatar", "created_at"],
   },
   {
     name: "queue_jobs",

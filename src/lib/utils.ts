@@ -93,7 +93,7 @@ export const ORDER_STATUS_META: Record<
 };
 
 export const PAYMENT_LABELS: Record<string, string> = {
-  PromptPay: 'พร้อมเพย์',
+  PromptPay: 'โอนผ่านธนาคาร',
   CreditCard: 'บัตรเครดิต',
   COD: 'เก็บเงินปลายทาง'
 };
